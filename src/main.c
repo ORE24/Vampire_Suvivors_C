@@ -68,11 +68,38 @@ static void ReadInput(InputState *input)
 static int RunSmokeTest(void)
 {
     Game game;
+    Game hardGame;
     RankingEntry rankings[MAX_RANKINGS];
     InputState input;
     int rankingCount = 0;
 
-    GameInit(&game);
+    GameInit(&game, DIFFICULTY_EASY);
+    GameInit(&hardGame, DIFFICULTY_HARD);
+
+    if (WEAPON_COUNT != 4 ||
+        game.player.maxHealth <= hardGame.player.maxHealth ||
+        game.spawnStartInterval <= hardGame.spawnStartInterval ||
+        game.highEnemyStart <= hardGame.highEnemyStart) {
+        fprintf(stderr, "smoke failed: difficulty or weapon setup is invalid\n");
+        return 1;
+    }
+
+    game.enemies[0] = (Enemy){true, ENEMY_ONE_HP, {game.player.position.x + 6.0f, game.player.position.y}, 1, 1, 1, 2, 10, 0.0f, 0.30f, 'b'};
+    WeaponsUpdate(&game, 1.20f);
+
+    {
+        int activeProjectiles = 0;
+        for (int i = 0; i < MAX_PROJECTILES; i++) {
+            if (game.projectiles[i].active) {
+                activeProjectiles++;
+            }
+        }
+        if (activeProjectiles < 3) {
+            fprintf(stderr, "smoke failed: weapon projectiles did not spawn\n");
+            return 1;
+        }
+    }
+
     memset(&input, 0, sizeof(input));
     input.pauseToggle = true;
     GameUpdate(&game, &input, 1.0f);
@@ -99,11 +126,11 @@ static int RunSmokeTest(void)
     }
 
     RankingLoad(rankings, &rankingCount);
-    printf("smoke ok: map=%dx%d hp=%d level=%d weapons=%d rankings=%d pause=ok\n",
+    printf("smoke ok: map=%dx%d hp=%d difficulty=%s weapons=%d rankings=%d pause=ok\n",
         game.mapWidth,
         game.mapHeight,
         game.player.health,
-        game.player.level,
+        GameDifficultyName(game.difficulty),
         WEAPON_COUNT,
         rankingCount);
     return 0;
@@ -115,6 +142,7 @@ int main(int argc, char **argv)
     Game game;
     RankingEntry rankings[MAX_RANKINGS];
     int rankingCount = 0;
+    GameDifficulty selectedDifficulty = DIFFICULTY_EASY;
     bool running = true;
     bool soundEnabled = true;
     bool scoreSaved = false;
@@ -127,7 +155,7 @@ int main(int argc, char **argv)
     }
 
     PlatformEnterTerminal();
-    GameInit(&game);
+    GameInit(&game, selectedDifficulty);
     RankingLoad(rankings, &rankingCount);
     previousTime = PlatformNowSeconds();
 
@@ -154,21 +182,37 @@ int main(int argc, char **argv)
                 RankingLoad(rankings, &rankingCount);
                 screen = SCREEN_RANKING;
             } else if (input.start || input.select) {
-                GameInit(&game);
+                screen = SCREEN_SETUP;
+            }
+
+            UiDrawTitle();
+        } else if (screen == SCREEN_SETUP) {
+            if (input.quit) {
+                running = false;
+            } else if (input.back) {
+                screen = SCREEN_TITLE;
+            } else if (input.number == 1 || input.left || input.up) {
+                selectedDifficulty = DIFFICULTY_EASY;
+            } else if (input.number == 2 || input.right || input.down) {
+                selectedDifficulty = DIFFICULTY_HARD;
+            }
+
+            if ((input.select && input.number == 0) || input.number == 1 || input.number == 2) {
+                GameInit(&game, selectedDifficulty);
                 scoreSaved = false;
                 screen = SCREEN_GAME;
             }
 
-            UiDrawTitle();
+            if (screen == SCREEN_SETUP) {
+                UiDrawSetup(selectedDifficulty);
+            }
         } else if (screen == SCREEN_RANKING) {
             if (input.quit) {
                 running = false;
             } else if (input.back) {
                 screen = SCREEN_TITLE;
             } else if (input.start || input.select) {
-                GameInit(&game);
-                scoreSaved = false;
-                screen = SCREEN_GAME;
+                screen = SCREEN_SETUP;
             }
 
             UiDrawRanking(rankings, rankingCount);
@@ -187,7 +231,7 @@ int main(int argc, char **argv)
             }
 
             if ((game.mode == GAME_MODE_GAME_OVER || game.mode == GAME_MODE_VICTORY) && input.restart) {
-                GameInit(&game);
+                GameInit(&game, selectedDifficulty);
                 scoreSaved = false;
             } else if ((game.mode == GAME_MODE_GAME_OVER || game.mode == GAME_MODE_VICTORY) && input.back) {
                 screen = SCREEN_TITLE;

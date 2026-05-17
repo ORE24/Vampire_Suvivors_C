@@ -197,9 +197,9 @@ void EnemiesSpawnWave(Game *game)
         return;
     }
 
-    if (game->elapsed > 90.0f && rand() % 100 < 8) {
+    if (game->elapsed > game->highEnemyStart && rand() % 100 < game->highEnemyChance) {
         type = ENEMY_FORTY_HP;
-    } else if (game->elapsed > 25.0f && rand() % 100 < 38) {
+    } else if (game->elapsed > game->midEnemyStart && rand() % 100 < game->midEnemyChance) {
         type = ENEMY_THREE_HP;
     }
 
@@ -224,11 +224,11 @@ void EnemiesSpawnWave(Game *game)
     }
 
     if (type == ENEMY_ONE_HP) {
-        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 1, 1, 1, 2, 10, 0.0f, 0.42f, 'b'};
+        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 1, 1, 1, 2, 10, 0.0f, 0.30f, 'b'};
     } else if (type == ENEMY_THREE_HP) {
-        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 3, 3, 2, 5, 30, 0.0f, 0.55f, 'G'};
+        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 3, 3, 2, 6, 35, 0.0f, 0.50f, 'G'};
     } else {
-        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 40, 40, 5, 45, 400, 0.0f, 0.82f, 'V'};
+        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 40, 40, 6, 50, 450, 0.0f, 0.95f, 'V'};
     }
 }
 
