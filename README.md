@@ -1,50 +1,59 @@
-# Terminal Survivors: C MVP
+# 터미널 서바이버즈: C MVP
 
-A Vampire Survivors-style MVP for a terminal-only environment. It uses ANSI
-escape sequences, POSIX terminal input, and the terminal bell for sound events.
-There is no raylib, SDL, ncurses, or graphics window dependency.
+터미널 환경에서 실행되는 뱀파이어 서바이벌 스타일 C언어 MVP입니다.  
+`raylib`, `SDL`, `ncurses` 같은 외부 그래픽 라이브러리를 쓰지 않고, ANSI escape sequence, POSIX 터미널 입력, 터미널 bell 소리만 사용합니다.
 
-## Build
+## 빌드
 
 ```sh
 make
 ```
 
-## Run
+## 실행
 
 ```sh
 make run
 ```
 
-## Controls
+## 조작법
 
-- Move: `WASD` or arrow keys
-- Start: `S` or `Enter`
-- Ranking screen: `R` on the title screen
-- Level-up choice: `1`, `2`, `3`, arrow keys plus `Enter`, or `Space`
-- Restart after run: `R`
-- Back to title after run/ranking: `B` or `Esc`
-- Toggle sound: `M`
-- Quit: `Q`
+- 이동: `WASD` 또는 방향키
+- 시작: `S` 또는 `Enter`
+- 랭킹 화면: 초기 화면에서 `R`
+- 레벨업 선택: `1`, `2`, `3` 또는 방향키로 선택 후 `Enter` / `Space`
+- 게임 종료 후 재시작: `R`
+- 랭킹/결과 화면에서 초기 화면으로 돌아가기: `B` 또는 `Esc`
+- 소리 켜기/끄기: `M`
+- 종료: `Q`
 
-## MVP Rules
+## MVP 규칙
 
-- Clear win condition: survive for 10 minutes.
-- Clear lose condition: HP reaches 0.
-- One map: a compact crypt arena with walls and tombstones.
-- Three enemy types:
-  - `b`: 1 HP
-  - `G`: 3 HP
-  - `V`: 40 HP
-- Two automatic weapons:
-  - Magic Bolt: targets the nearest enemy and fires `*` projectiles.
-  - Holy Aura: periodically damages enemies around the player.
-- Enemies drop `+` experience. Pickups are pulled toward the player in range.
-- Level-ups pause the game and offer three upgrade choices.
-- Rankings are saved to `scores.txt` and shown from the title screen.
+- 승리 조건: 10분 동안 생존하면 승리합니다.
+- 패배 조건: 플레이어 HP가 0이 되면 게임오버입니다.
+- 맵: 벽과 장애물이 있는 지하 묘지형 맵 1개를 사용합니다.
+- 적 3종:
+  - `b`: HP 1
+  - `G`: HP 3
+  - `V`: HP 40
+- 자동 공격 무기 2종:
+  - 마법탄: 가장 가까운 적을 조준해 `*` 투사체를 발사합니다.
+  - 신성 오라: 플레이어 주변 적에게 주기적으로 범위 피해를 줍니다.
+- 적을 처치하면 `+` 경험치가 떨어집니다.
+- 경험치는 플레이어가 가까이 가면 자동으로 끌려옵니다.
+- 경험치를 충분히 모으면 레벨업하고, 게임이 잠시 멈춘 상태에서 강화 3개 중 하나를 선택합니다.
+- 랭킹은 `scores.txt`에 저장되며 초기 화면에서 확인할 수 있습니다.
 
-## Terminal Sound
+## 터미널 사운드
 
-Attack, XP pickup, level-up, player hit, game-over, and victory events emit the
-terminal bell (`\a`). Some terminals mute bell sounds by default; press `M` to
-toggle sounds while running.
+공격, 경험치 획득, 레벨업, 피격, 게임오버, 승리 이벤트가 발생하면 터미널 bell(`\a`)을 울립니다.  
+일부 터미널은 기본 설정에서 bell 소리가 꺼져 있을 수 있습니다. 게임 실행 중 `M`을 눌러 사운드를 켜거나 끌 수 있습니다.
+
+## 협업 브랜치
+
+팀원별 작업 브랜치는 다음과 같이 나눕니다.
+
+- `JONG`
+- `TAE`
+- `JAE`
+
+각 브랜치는 `main`의 최신 MVP를 기준으로 만들어졌습니다. 기능 작업은 본인 브랜치에서 진행한 뒤 Pull Request로 `main`에 합치는 방식으로 진행합니다.
