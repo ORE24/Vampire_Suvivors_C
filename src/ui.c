@@ -60,7 +60,7 @@ static void EndFrame(void)
     fflush(stdout);
 }
 
-static void DrawBar(const char *label, int current, int max, int width)
+static void DrawBar(const char *label, int current, int max, int width, const char *barColor)
 {
     int filled;
 
@@ -71,11 +71,15 @@ static void DrawBar(const char *label, int current, int max, int width)
     filled = current * width / max;
     filled = GameClampInt(filled, 0, width);
 
-    printf("%s [", label);
+    printf("%s%s\033[0m [", barColor, label);
+    fputs(barColor, stdout);
     for (int i = 0; i < width; i++) {
+        if (i == filled) {
+            fputs("\033[2;37m", stdout);
+        }
         putchar(i < filled ? '=' : ' ');
     }
-    printf("] %d/%d", current, max);
+    printf("\033[0m] %d/%d", current, max);
 }
 
 static void PutCell(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH], int x, int y, char glyph, CellColor color)
@@ -231,9 +235,9 @@ void UiDrawGame(const Game *game)
     printf("Remain %02d:%02d  ", remaining / 60, remaining % 60);
     printf("Kills %d  Score %d\n", game->player.kills, game->player.score);
 
-    DrawBar("HP", game->player.health, game->player.maxHealth, 18);
+    DrawBar("HP", game->player.health, game->player.maxHealth, 18, "\033[1;31m");
     printf("   ");
-    DrawBar("XP", game->player.xp, game->player.xpToNextLevel, 18);
+    DrawBar("XP", game->player.xp, game->player.xpToNextLevel, 18, "\033[1;32m");
     printf("   LV %d\n", game->player.level);
 
     printf("Weapons: Bolt Lv%d Dmg%d x%d CD%.2f | Aura Lv%d Dmg%d R%d CD%.2f\n",
