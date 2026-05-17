@@ -20,19 +20,21 @@ Windows에서는 MinGW-w64의 `gcc`가 필요하다. Windows Terminal 또는 Pow
 
 ## 작업 전 체크리스트
 
-- 현재 브랜치가 자기 브랜치인지 확인한다.
+1. 현재 브랜치가 자기 브랜치인지 확인한다.
 
 ```sh
 git branch --show-current
 ```
 
-- 최신 코드를 받는다.
+2. 최신 코드를 받는다.
 
 ```sh
 git pull
 ```
 
-- 빌드가 되는지 확인한다.
+3. [협업 작업 현황판](TEAM_TASKS.md)에서 자기 담당 작업과 완료 기준을 확인한다.
+
+4. 빌드가 되는지 확인한다.
 
 ```sh
 make
@@ -40,28 +42,43 @@ make
 
 ## 작업 후 체크리스트
 
-- 변경 파일을 확인한다.
+1. 변경 파일을 확인한다.
 
 ```sh
 git status
 ```
 
-- 빌드 확인:
+2. 빌드 확인:
 
 ```sh
 make
 ```
 
-- 스모크 테스트 확인:
+3. 스모크 테스트 확인:
 
 ```sh
 ./build/vampire-survivors-c --smoke-test
 ```
 
-Windows에서는 아래 실행 파일로 게임을 직접 켜서 확인한다.
+4. Windows에서는 아래 실행 파일로 게임을 직접 켜서 확인한다.
 
 ```bat
 build\vampire-survivors-c.exe
+```
+
+5. 게임 규칙, 조작법, 담당 작업이 바뀌었다면 문서를 같이 수정한다.
+
+6. 한글 커밋 메시지로 커밋한다.
+
+```sh
+git add .
+git commit -m "기능: 작업 내용 요약"
+```
+
+7. 자기 브랜치에 push한다.
+
+```sh
+git push
 ```
 
 ## Pull Request 전 확인할 것
@@ -73,7 +90,10 @@ build\vampire-survivors-c.exe
 - 자동 공격이 나가는가?
 - 경험치를 먹고 레벨업할 수 있는가?
 - 게임오버 또는 승리 조건이 명확한가?
+- `Esc` 일시정지와 재개가 유지되는가?
+- 고정 맵 크기와 UI가 깨지지 않는가?
 - README나 문서 수정이 필요한가?
+- Pull Request 설명에 테스트 결과를 적었는가?
 
 ## 코드 수정 원칙
 
