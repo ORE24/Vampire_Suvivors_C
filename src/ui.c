@@ -51,7 +51,13 @@ static const char *ColorCode(CellColor color)
 
 static void BeginFrame(void)
 {
-    printf("\033[H\033[2J");
+    printf("\033[H");
+}
+
+static void EndFrame(void)
+{
+    printf("\033[0m\033[J");
+    fflush(stdout);
 }
 
 static void DrawBar(const char *label, int current, int max, int width)
@@ -145,6 +151,23 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
     }
 }
 
+static void DrawGridLine(const Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH], int y, int width)
+{
+    CellColor currentColor = CELL_TEXT;
+    bool hasColor = false;
+
+    for (int x = 0; x < width; x++) {
+        if (!hasColor || grid[y][x].color != currentColor) {
+            currentColor = grid[y][x].color;
+            fputs(ColorCode(currentColor), stdout);
+            hasColor = true;
+        }
+        putchar(grid[y][x].glyph);
+    }
+
+    printf("\033[0m\n");
+}
+
 void UiDrawTitle(void)
 {
     BeginFrame();
@@ -163,7 +186,7 @@ void UiDrawTitle(void)
     printf("  M                 : toggle terminal bell sound\n");
     printf("  Q / Esc           : quit\n\n");
     printf("\033[1;33mPress S or Enter to start. Press R for rankings.\033[0m\n");
-    fflush(stdout);
+    EndFrame();
 }
 
 void UiDrawRanking(const RankingEntry entries[MAX_RANKINGS], int count)
@@ -189,7 +212,7 @@ void UiDrawRanking(const RankingEntry entries[MAX_RANKINGS], int count)
     }
 
     printf("\nPress B/Esc to go back, S/Enter to start, Q to quit.\n");
-    fflush(stdout);
+    EndFrame();
 }
 
 void UiDrawGame(const Game *game)
@@ -223,10 +246,7 @@ void UiDrawGame(const Game *game)
     printf("Legend: \033[1;36m@\033[0m you  \033[1;31mb\033[0m HP1  \033[38;5;208mG\033[0m HP3  \033[1;35mV\033[0m HP40  \033[1;33m*\033[0m bolt  \033[1;32m+\033[0m XP\n\n");
 
     for (int y = 0; y < game->mapHeight; y++) {
-        for (int x = 0; x < game->mapWidth; x++) {
-            printf("%s%c", ColorCode(grid[y][x].color), grid[y][x].glyph);
-        }
-        printf("\033[0m\n");
+        DrawGridLine(grid, y, game->mapWidth);
     }
 
     if (game->mode == GAME_MODE_LEVEL_UP) {
@@ -246,7 +266,7 @@ void UiDrawGame(const Game *game)
         printf("\nMove to dodge. Attacks are automatic. Q ends the run. M toggles sound.\n");
     }
 
-    fflush(stdout);
+    EndFrame();
 }
 
 void UiPlaySounds(unsigned int flags, bool enabled)
