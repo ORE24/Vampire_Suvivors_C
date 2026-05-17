@@ -5,10 +5,8 @@
 
 #define DEFAULT_MAP_WIDTH 96
 #define DEFAULT_MAP_HEIGHT 30
-#define MIN_MAP_WIDTH 64
-#define MIN_MAP_HEIGHT 22
-#define MAX_MAP_WIDTH 240
-#define MAX_MAP_HEIGHT 80
+#define MAX_MAP_WIDTH DEFAULT_MAP_WIDTH
+#define MAX_MAP_HEIGHT DEFAULT_MAP_HEIGHT
 
 #define MAX_ENEMIES 96
 #define MAX_PROJECTILES 96
@@ -170,8 +168,7 @@ int GameClampInt(int value, int min, int max);
 bool GameMapIsBlocked(const Game *game, int x, int y);
 char GameMapTile(const Game *game, int x, int y);
 
-void GameInit(Game *game, int mapWidth, int mapHeight);
-void GameResizeMap(Game *game, int mapWidth, int mapHeight);
+void GameInit(Game *game);
 void GameUpdate(Game *game, const InputState *input, float dt);
 void GameApplyUpgrade(Game *game, int index);
 void GameRequestSound(Game *game, unsigned int flags);

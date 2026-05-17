@@ -154,12 +154,12 @@ void GameRequestSound(Game *game, unsigned int flags)
     game->pendingSounds |= flags;
 }
 
-void GameInit(Game *game, int mapWidth, int mapHeight)
+void GameInit(Game *game)
 {
     memset(game, 0, sizeof(*game));
 
-    game->mapWidth = GameClampInt(mapWidth, MIN_MAP_WIDTH, MAX_MAP_WIDTH);
-    game->mapHeight = GameClampInt(mapHeight, MIN_MAP_HEIGHT, MAX_MAP_HEIGHT);
+    game->mapWidth = DEFAULT_MAP_WIDTH;
+    game->mapHeight = DEFAULT_MAP_HEIGHT;
     game->mode = GAME_MODE_PLAYING;
     game->player.position = (Vec2){game->mapWidth / 2.0f, game->mapHeight / 2.0f};
     game->player.maxHealth = 12;
@@ -200,48 +200,6 @@ void GameInit(Game *game, int mapWidth, int mapHeight)
     game->auraPulseTimer = 0.0f;
     game->pendingSounds = 0;
     GenerateUpgrades(game);
-}
-
-void GameResizeMap(Game *game, int mapWidth, int mapHeight)
-{
-    const int nextWidth = GameClampInt(mapWidth, MIN_MAP_WIDTH, MAX_MAP_WIDTH);
-    const int nextHeight = GameClampInt(mapHeight, MIN_MAP_HEIGHT, MAX_MAP_HEIGHT);
-
-    if (game->mapWidth == nextWidth && game->mapHeight == nextHeight) {
-        return;
-    }
-
-    game->mapWidth = nextWidth;
-    game->mapHeight = nextHeight;
-    game->player.position.x = (float)GameClampInt(GameRound(game->player.position.x), 1, game->mapWidth - 2);
-    game->player.position.y = (float)GameClampInt(GameRound(game->player.position.y), 1, game->mapHeight - 2);
-
-    for (int i = 0; i < MAX_ENEMIES; i++) {
-        Enemy *enemy = &game->enemies[i];
-        if (enemy->active) {
-            enemy->position.x = (float)GameClampInt(GameRound(enemy->position.x), 1, game->mapWidth - 2);
-            enemy->position.y = (float)GameClampInt(GameRound(enemy->position.y), 1, game->mapHeight - 2);
-        }
-    }
-
-    for (int i = 0; i < MAX_PICKUPS; i++) {
-        Pickup *pickup = &game->pickups[i];
-        if (pickup->active) {
-            pickup->position.x = (float)GameClampInt(GameRound(pickup->position.x), 1, game->mapWidth - 2);
-            pickup->position.y = (float)GameClampInt(GameRound(pickup->position.y), 1, game->mapHeight - 2);
-        }
-    }
-
-    for (int i = 0; i < MAX_PROJECTILES; i++) {
-        Projectile *projectile = &game->projectiles[i];
-        if (projectile->active &&
-            (projectile->position.x < 1.0f ||
-                projectile->position.x > (float)(game->mapWidth - 2) ||
-                projectile->position.y < 1.0f ||
-                projectile->position.y > (float)(game->mapHeight - 2))) {
-            projectile->active = false;
-        }
-    }
 }
 
 void GameApplyUpgrade(Game *game, int index)
