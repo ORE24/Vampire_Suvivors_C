@@ -183,8 +183,10 @@ void UiDrawTitle(void)
     printf("  WASD / Arrow keys : move\n");
     printf("  1, 2, 3 or Enter  : choose level-up upgrade\n");
     printf("  R                 : ranking on this screen, restart after run\n");
+    printf("  Esc               : pause/resume during a run\n");
     printf("  M                 : toggle terminal bell sound\n");
-    printf("  Q / Esc           : quit\n\n");
+    printf("  Q                 : quit or end current run\n");
+    printf("  Esc on title      : quit\n\n");
     printf("\033[1;33mPress S or Enter to start. Press R for rankings.\033[0m\n");
     EndFrame();
 }
@@ -258,12 +260,14 @@ void UiDrawGame(const Game *game)
                 game->upgrades[i].name,
                 game->upgrades[i].description);
         }
+    } else if (game->mode == GAME_MODE_PAUSED) {
+        printf("\n\033[1;33mPAUSED\033[0m  Press Esc to resume. Q ends the run.\n");
     } else if (game->mode == GAME_MODE_GAME_OVER) {
         printf("\n\033[1;31mGAME OVER\033[0m  HP reached 0. Press R to restart or B/Esc for title.\n");
     } else if (game->mode == GAME_MODE_VICTORY) {
         printf("\n\033[1;32mVICTORY\033[0m  You survived 10 minutes. Press R to restart or B/Esc for title.\n");
     } else {
-        printf("\nMove to dodge. Attacks are automatic. Q ends the run. M toggles sound.\n");
+        printf("\nMove to dodge. Attacks are automatic. Esc pauses. Q ends the run. M toggles sound.\n");
     }
 
     EndFrame();

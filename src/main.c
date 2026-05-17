@@ -20,8 +20,10 @@ static void ReadInput(InputState *input)
             char code;
 
             input->back = true;
+            input->pauseToggle = true;
             if (PlatformReadByte(&next) && next == '[' && PlatformReadByte(&code)) {
                 input->back = false;
+                input->pauseToggle = false;
                 if (code == 'A') {
                     input->up = true;
                 } else if (code == 'B') {
@@ -63,6 +65,50 @@ static void ReadInput(InputState *input)
     }
 }
 
+static int RunSmokeTest(void)
+{
+    Game game;
+    RankingEntry rankings[MAX_RANKINGS];
+    InputState input;
+    int rankingCount = 0;
+
+    GameInit(&game);
+    memset(&input, 0, sizeof(input));
+    input.pauseToggle = true;
+    GameUpdate(&game, &input, 1.0f);
+
+    if (game.mode != GAME_MODE_PAUSED || game.elapsed != 0.0f) {
+        fprintf(stderr, "smoke failed: pause did not stop gameplay\n");
+        return 1;
+    }
+
+    memset(&input, 0, sizeof(input));
+    GameUpdate(&game, &input, 1.0f);
+
+    if (game.mode != GAME_MODE_PAUSED || game.elapsed != 0.0f) {
+        fprintf(stderr, "smoke failed: paused game advanced\n");
+        return 1;
+    }
+
+    input.pauseToggle = true;
+    GameUpdate(&game, &input, 1.0f);
+
+    if (game.mode != GAME_MODE_PLAYING || game.elapsed != 0.0f) {
+        fprintf(stderr, "smoke failed: resume did not restore gameplay\n");
+        return 1;
+    }
+
+    RankingLoad(rankings, &rankingCount);
+    printf("smoke ok: map=%dx%d hp=%d level=%d weapons=%d rankings=%d pause=ok\n",
+        game.mapWidth,
+        game.mapHeight,
+        game.player.health,
+        game.player.level,
+        WEAPON_COUNT,
+        rankingCount);
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     AppScreen screen = SCREEN_TITLE;
@@ -77,16 +123,7 @@ int main(int argc, char **argv)
     srand((unsigned int)time(NULL));
 
     if (argc > 1 && strcmp(argv[1], "--smoke-test") == 0) {
-        GameInit(&game);
-        RankingLoad(rankings, &rankingCount);
-        printf("smoke ok: map=%dx%d hp=%d level=%d weapons=%d rankings=%d\n",
-            game.mapWidth,
-            game.mapHeight,
-            game.player.health,
-            game.player.level,
-            WEAPON_COUNT,
-            rankingCount);
-        return 0;
+        return RunSmokeTest();
     }
 
     PlatformEnterTerminal();
@@ -136,7 +173,7 @@ int main(int argc, char **argv)
 
             UiDrawRanking(rankings, rankingCount);
         } else if (screen == SCREEN_GAME) {
-            if (input.quit && game.mode == GAME_MODE_PLAYING) {
+            if (input.quit && (game.mode == GAME_MODE_PLAYING || game.mode == GAME_MODE_PAUSED)) {
                 game.mode = GAME_MODE_GAME_OVER;
                 GameRequestSound(&game, SOUND_GAME_OVER);
             }

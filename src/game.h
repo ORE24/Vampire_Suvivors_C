@@ -24,6 +24,7 @@ typedef enum AppScreen {
 
 typedef enum GameMode {
     GAME_MODE_PLAYING = 0,
+    GAME_MODE_PAUSED,
     GAME_MODE_LEVEL_UP,
     GAME_MODE_GAME_OVER,
     GAME_MODE_VICTORY
@@ -62,6 +63,7 @@ typedef struct InputState {
     bool ranking;
     bool restart;
     bool quit;
+    bool pauseToggle;
     bool muteToggle;
     int number;
 } InputState;

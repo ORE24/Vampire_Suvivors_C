@@ -249,6 +249,18 @@ void GameUpdate(Game *game, const InputState *input, float dt)
         return;
     }
 
+    if (input->pauseToggle && game->mode == GAME_MODE_PLAYING) {
+        game->mode = GAME_MODE_PAUSED;
+        return;
+    }
+
+    if (game->mode == GAME_MODE_PAUSED) {
+        if (input->pauseToggle) {
+            game->mode = GAME_MODE_PLAYING;
+        }
+        return;
+    }
+
     if (game->mode == GAME_MODE_LEVEL_UP) {
         if (input->left || input->up) {
             game->selectedUpgrade = (game->selectedUpgrade + UPGRADE_CHOICES - 1) % UPGRADE_CHOICES;
