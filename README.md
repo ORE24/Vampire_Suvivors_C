@@ -5,6 +5,10 @@
 macOS와 Windows를 모두 지원하도록 터미널 입출력 코드를 플랫폼별로 분리했습니다.
 게임 맵은 `96 x 30` 타일로 고정되어 있어 터미널 창 크기, OS, 디스플레이 크기가 달라도 같은 좌표와 규칙으로 진행됩니다.
 
+## 협업자 시작점
+
+처음 작업하는 협업자는 먼저 [협업 작업 현황판](docs/TEAM_TASKS.md)을 확인합니다. 현재 완료된 기능, 다음 작업, 담당자별 역할, Pull Request 전 확인할 항목이 정리되어 있습니다.
+
 ## 빠른 실행
 
 macOS:
@@ -26,7 +30,8 @@ MSYS2/Git Bash 환경에서는 Windows에서도 `make`, `make run`을 사용할 
 ## 조작법
 
 - 이동: `WASD` 또는 방향키
-- 시작: `S` 또는 `Enter`
+- 설정 화면 열기: 초기 화면에서 `S` 또는 `Enter`
+- 난이도 선택: 설정 화면에서 `1` Easy, `2` Hard 또는 방향키 후 `Enter`
 - 랭킹 화면: 초기 화면에서 `R`
 - 레벨업 선택: `1`, `2`, `3` 또는 방향키로 선택 후 `Enter` / `Space`
 - 일시정지/재개: 게임 중 `Esc`
@@ -38,6 +43,7 @@ MSYS2/Git Bash 환경에서는 Windows에서도 `make`, `make run`을 사용할 
 
 ## 프로젝트 문서
 
+- [협업 작업 현황판](docs/TEAM_TASKS.md)
 - [2026-05-17 1차 회의록](docs/MEETING_2026-05-17.md)
 - [GitHub 협업 가이드](docs/GITHUB_WORKFLOW.md)
 - [프로젝트 파일 구조 및 코드 설명](docs/PROJECT_STRUCTURE.md)

@@ -9,24 +9,23 @@ static const char *SCORE_FILE = "scores.txt";
 
 static void GenerateUpgrades(Game *game)
 {
-    game->upgrades[0] = (UpgradeOption){
-        "Magic Bolt",
-        "Bolt +1 damage, faster shots",
-        WEAPON_MAGIC_BOLT,
-        0
+    const UpgradeOption options[] = {
+        {"Magic Bolt", "Bolt +1 damage, faster shots", WEAPON_MAGIC_BOLT, 0},
+        {"Holy Aura", "Aura +1 range, stronger pulse", WEAPON_HOLY_AURA, 1},
+        {"Piercing Lance", "Lance +1 damage, more pierce", WEAPON_PIERCING_LANCE, 2},
+        {"Star Burst", "Star +1 damage, more shots", WEAPON_STAR_BURST, 3},
+        {"Survivor", "+2 max HP, heal 2, wider XP pull", WEAPON_COUNT, 4}
     };
-    game->upgrades[1] = (UpgradeOption){
-        "Holy Aura",
-        "Aura +1 range, stronger pulse",
-        WEAPON_HOLY_AURA,
-        1
-    };
-    game->upgrades[2] = (UpgradeOption){
-        "Survivor",
-        "+2 max HP, heal 2, wider XP pull",
-        WEAPON_COUNT,
-        2
-    };
+    bool used[5] = {false, false, false, false, false};
+
+    for (int i = 0; i < UPGRADE_CHOICES; i++) {
+        int optionIndex = rand() % 5;
+        while (used[optionIndex]) {
+            optionIndex = (optionIndex + 1) % 5;
+        }
+        used[optionIndex] = true;
+        game->upgrades[i] = options[optionIndex];
+    }
     game->selectedUpgrade = 0;
 }
 
@@ -149,21 +148,31 @@ bool GameMapIsBlocked(const Game *game, int x, int y)
     return tile == '#' || tile == 'T';
 }
 
+const char *GameDifficultyName(GameDifficulty difficulty)
+{
+    if (difficulty == DIFFICULTY_HARD) {
+        return "Hard";
+    }
+
+    return "Easy";
+}
+
 void GameRequestSound(Game *game, unsigned int flags)
 {
     game->pendingSounds |= flags;
 }
 
-void GameInit(Game *game)
+void GameInit(Game *game, GameDifficulty difficulty)
 {
     memset(game, 0, sizeof(*game));
 
+    game->difficulty = difficulty;
     game->mapWidth = DEFAULT_MAP_WIDTH;
     game->mapHeight = DEFAULT_MAP_HEIGHT;
     game->mode = GAME_MODE_PLAYING;
     game->player.position = (Vec2){game->mapWidth / 2.0f, game->mapHeight / 2.0f};
-    game->player.maxHealth = 12;
-    game->player.health = 12;
+    game->player.maxHealth = difficulty == DIFFICULTY_HARD ? 10 : 14;
+    game->player.health = game->player.maxHealth;
     game->player.level = 1;
     game->player.xp = 0;
     game->player.xpToNextLevel = 6;
@@ -191,12 +200,49 @@ void GameInit(Game *game)
         2,
         1.45f,
         0.80f,
-        'o'
+        '~'
+    };
+    game->weapons[WEAPON_PIERCING_LANCE] = (Weapon){
+        WEAPON_PIERCING_LANCE,
+        1,
+        2,
+        2,
+        24,
+        1.10f,
+        0.55f,
+        '|'
+    };
+    game->weapons[WEAPON_STAR_BURST] = (Weapon){
+        WEAPON_STAR_BURST,
+        1,
+        1,
+        4,
+        0,
+        2.20f,
+        1.10f,
+        'x'
     };
 
     game->elapsed = 0.0f;
     game->spawnTimer = 0.0f;
-    game->spawnInterval = 1.2f;
+    if (difficulty == DIFFICULTY_HARD) {
+        game->spawnStartInterval = 0.95f;
+        game->spawnRampPerSecond = 0.0018f;
+        game->spawnMinInterval = 0.24f;
+        game->midEnemyStart = 15.0f;
+        game->highEnemyStart = 55.0f;
+        game->midEnemyChance = 48;
+        game->highEnemyChance = 13;
+    } else {
+        game->spawnStartInterval = 1.35f;
+        game->spawnRampPerSecond = 0.0011f;
+        game->spawnMinInterval = 0.38f;
+        game->midEnemyStart = 35.0f;
+        game->highEnemyStart = 105.0f;
+        game->midEnemyChance = 32;
+        game->highEnemyChance = 6;
+    }
+    game->spawnInterval = game->spawnStartInterval;
     game->auraPulseTimer = 0.0f;
     game->pendingSounds = 0;
     GenerateUpgrades(game);
@@ -230,6 +276,26 @@ void GameApplyUpgrade(Game *game, int index)
         }
         if (weapon->cooldown > 0.55f) {
             weapon->cooldown -= 0.08f;
+        }
+    } else if (upgrade->weapon == WEAPON_PIERCING_LANCE) {
+        Weapon *weapon = &game->weapons[WEAPON_PIERCING_LANCE];
+        weapon->level++;
+        weapon->damage++;
+        if (weapon->cooldown > 0.45f) {
+            weapon->cooldown -= 0.07f;
+        }
+        if (weapon->level == 2 || weapon->level == 4 || weapon->level == 7) {
+            weapon->projectileCount++;
+        }
+    } else if (upgrade->weapon == WEAPON_STAR_BURST) {
+        Weapon *weapon = &game->weapons[WEAPON_STAR_BURST];
+        weapon->level++;
+        weapon->damage++;
+        if (weapon->cooldown > 0.90f) {
+            weapon->cooldown -= 0.10f;
+        }
+        if (weapon->level == 2 || weapon->level == 4 || weapon->level == 6) {
+            weapon->projectileCount++;
         }
     } else {
         game->player.maxHealth += 2;
@@ -284,9 +350,9 @@ void GameUpdate(Game *game, const InputState *input, float dt)
         return;
     }
 
-    game->spawnInterval = 1.15f - (float)game->elapsed * 0.0014f;
-    if (game->spawnInterval < 0.30f) {
-        game->spawnInterval = 0.30f;
+    game->spawnInterval = game->spawnStartInterval - (float)game->elapsed * game->spawnRampPerSecond;
+    if (game->spawnInterval < game->spawnMinInterval) {
+        game->spawnInterval = game->spawnMinInterval;
     }
 
     PlayerUpdate(game, input, dt);

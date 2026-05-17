@@ -2,6 +2,8 @@
 
 #include <math.h>
 
+#define PI 3.14159265358979323846f
+
 static int FindNearestEnemy(const Game *game, int range)
 {
     int nearest = -1;
@@ -30,7 +32,7 @@ static int FindNearestEnemy(const Game *game, int range)
     return nearest;
 }
 
-static void SpawnProjectile(Game *game, Vec2 direction)
+static void SpawnProjectile(Game *game, const Weapon *weapon, Vec2 direction, float speed, float lifetime, int pierce)
 {
     for (int i = 0; i < MAX_PROJECTILES; i++) {
         Projectile *projectile = &game->projectiles[i];
@@ -41,10 +43,11 @@ static void SpawnProjectile(Game *game, Vec2 direction)
         direction = GameNormalize(direction);
         projectile->active = true;
         projectile->position = game->player.position;
-        projectile->velocity = GameScale(direction, 13.0f);
-        projectile->damage = game->weapons[WEAPON_MAGIC_BOLT].damage;
-        projectile->lifetime = 1.8f;
-        projectile->glyph = game->weapons[WEAPON_MAGIC_BOLT].glyph;
+        projectile->velocity = GameScale(direction, speed);
+        projectile->damage = weapon->damage;
+        projectile->lifetime = lifetime;
+        projectile->pierce = pierce;
+        projectile->glyph = weapon->glyph;
         return;
     }
 }
@@ -69,7 +72,7 @@ static void FireMagicBolt(Game *game, Weapon *weapon)
     for (int i = 0; i < weapon->projectileCount; i++) {
         const float offset = ((float)i - ((float)weapon->projectileCount - 1.0f) * 0.5f) * spread;
         const float angle = baseAngle + offset;
-        SpawnProjectile(game, (Vec2){cosf(angle), sinf(angle)});
+        SpawnProjectile(game, weapon, (Vec2){cosf(angle), sinf(angle)}, 13.0f, 1.8f, 1);
     }
 
     GameRequestSound(game, SOUND_ATTACK);
@@ -82,10 +85,40 @@ static void PulseHolyAura(Game *game, Weapon *weapon)
     GameRequestSound(game, SOUND_ATTACK);
 }
 
+static void FirePiercingLance(Game *game, Weapon *weapon)
+{
+    const int targetIndex = FindNearestEnemy(game, weapon->range);
+    Vec2 direction;
+
+    if (targetIndex < 0) {
+        return;
+    }
+
+    direction.x = game->enemies[targetIndex].position.x - game->player.position.x;
+    direction.y = game->enemies[targetIndex].position.y - game->player.position.y;
+    SpawnProjectile(game, weapon, direction, 16.0f, 2.2f, weapon->projectileCount);
+    GameRequestSound(game, SOUND_ATTACK);
+}
+
+static void FireStarBurst(Game *game, Weapon *weapon)
+{
+    const float baseAngle = game->elapsed * 1.7f;
+    const int count = weapon->projectileCount > 0 ? weapon->projectileCount : 1;
+
+    for (int i = 0; i < count; i++) {
+        const float angle = baseAngle + ((2.0f * PI) * (float)i / (float)count);
+        SpawnProjectile(game, weapon, (Vec2){cosf(angle), sinf(angle)}, 10.0f, 1.6f, 1);
+    }
+
+    GameRequestSound(game, SOUND_ATTACK);
+}
+
 void WeaponsUpdate(Game *game, float dt)
 {
     Weapon *bolt = &game->weapons[WEAPON_MAGIC_BOLT];
     Weapon *aura = &game->weapons[WEAPON_HOLY_AURA];
+    Weapon *lance = &game->weapons[WEAPON_PIERCING_LANCE];
+    Weapon *star = &game->weapons[WEAPON_STAR_BURST];
 
     bolt->timer -= dt;
     if (bolt->timer <= 0.0f) {
@@ -97,6 +130,18 @@ void WeaponsUpdate(Game *game, float dt)
     if (aura->timer <= 0.0f) {
         PulseHolyAura(game, aura);
         aura->timer += aura->cooldown;
+    }
+
+    lance->timer -= dt;
+    if (lance->timer <= 0.0f) {
+        FirePiercingLance(game, lance);
+        lance->timer += lance->cooldown;
+    }
+
+    star->timer -= dt;
+    if (star->timer <= 0.0f) {
+        FireStarBurst(game, star);
+        star->timer += star->cooldown;
     }
 }
 
@@ -143,7 +188,10 @@ void CombatResolve(Game *game)
             }
 
             enemy->health -= projectile->damage;
-            projectile->active = false;
+            projectile->pierce--;
+            if (projectile->pierce <= 0) {
+                projectile->active = false;
+            }
 
             if (enemy->health <= 0) {
                 PickupSpawn(game, enemy->position, enemy->xpValue);

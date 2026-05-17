@@ -186,12 +186,27 @@ void UiDrawTitle(void)
     printf("\033[1;37mControls\033[0m\n");
     printf("  WASD / Arrow keys : move\n");
     printf("  1, 2, 3 or Enter  : choose level-up upgrade\n");
+    printf("  1 / 2             : choose Easy / Hard on setup\n");
     printf("  R                 : ranking on this screen, restart after run\n");
     printf("  Esc               : pause/resume during a run\n");
     printf("  M                 : toggle terminal bell sound\n");
     printf("  Q                 : quit or end current run\n");
     printf("  Esc on title      : quit\n\n");
-    printf("\033[1;33mPress S or Enter to start. Press R for rankings.\033[0m\n");
+    printf("\033[1;33mPress S or Enter to open setup. Press R for rankings.\033[0m\n");
+    EndFrame();
+}
+
+void UiDrawSetup(GameDifficulty selectedDifficulty)
+{
+    BeginFrame();
+    printf("\033[1;36m============================== SETUP ================================\033[0m\n\n");
+    printf("Choose difficulty before starting the run.\n\n");
+    printf("%s[1] Easy\033[0m  HP 14, slower waves, late vampires\n",
+        selectedDifficulty == DIFFICULTY_EASY ? "\033[1;32m> " : "  ");
+    printf("%s[2] Hard\033[0m  HP 10, faster waves, early vampires\n\n",
+        selectedDifficulty == DIFFICULTY_HARD ? "\033[1;31m> " : "  ");
+    printf("Current: \033[1;33m%s\033[0m\n\n", GameDifficultyName(selectedDifficulty));
+    printf("Use arrow keys or 1/2 to change. Enter starts. B/Esc returns.\n");
     EndFrame();
 }
 
@@ -217,7 +232,7 @@ void UiDrawRanking(const RankingEntry entries[MAX_RANKINGS], int count)
         }
     }
 
-    printf("\nPress B/Esc to go back, S/Enter to start, Q to quit.\n");
+    printf("\nPress B/Esc to go back, S/Enter for setup, Q to quit.\n");
     EndFrame();
 }
 
@@ -231,6 +246,7 @@ void UiDrawGame(const Game *game)
     BeginFrame();
 
     printf("\033[1;36mTerminal Survivors\033[0m  ");
+    printf("Mode %s  ", GameDifficultyName(game->difficulty));
     printf("Time %02d:%02d / 10:00  ", seconds / 60, seconds % 60);
     printf("Remain %02d:%02d  ", remaining / 60, remaining % 60);
     printf("Kills %d  Score %d\n", game->player.kills, game->player.score);
@@ -249,7 +265,16 @@ void UiDrawGame(const Game *game)
         game->weapons[WEAPON_HOLY_AURA].damage,
         game->weapons[WEAPON_HOLY_AURA].range,
         game->weapons[WEAPON_HOLY_AURA].cooldown);
-    printf("Legend: \033[1;36m@\033[0m you  \033[1;31mb\033[0m HP1  \033[38;5;208mG\033[0m HP3  \033[1;35mV\033[0m HP40  \033[1;33m*\033[0m bolt  \033[1;32m+\033[0m XP\n\n");
+    printf("         Lance Lv%d Dmg%d P%d CD%.2f | Star Lv%d Dmg%d x%d CD%.2f\n",
+        game->weapons[WEAPON_PIERCING_LANCE].level,
+        game->weapons[WEAPON_PIERCING_LANCE].damage,
+        game->weapons[WEAPON_PIERCING_LANCE].projectileCount,
+        game->weapons[WEAPON_PIERCING_LANCE].cooldown,
+        game->weapons[WEAPON_STAR_BURST].level,
+        game->weapons[WEAPON_STAR_BURST].damage,
+        game->weapons[WEAPON_STAR_BURST].projectileCount,
+        game->weapons[WEAPON_STAR_BURST].cooldown);
+    printf("Legend: \033[1;36m@\033[0m you  \033[1;31mb\033[0m fast  \033[38;5;208mG\033[0m guard  \033[1;35mV\033[0m vampire  \033[1;33m*\033[0m bolt  \033[1;33m|\033[0m lance  \033[1;33mx\033[0m star  \033[1;32m+\033[0m XP\n\n");
 
     for (int y = 0; y < game->mapHeight; y++) {
         DrawGridLine(grid, y, game->mapWidth);

@@ -83,6 +83,9 @@ void PlatformExitTerminal(void)
         return;
     }
 
+    printf("\033[0m\033[2J\033[H\033[?25h\033[?1049l");
+    fflush(stdout);
+
     if (inputModeReady) {
         SetConsoleMode(inputHandle, originalInputMode);
     }
@@ -90,8 +93,6 @@ void PlatformExitTerminal(void)
         SetConsoleMode(outputHandle, originalOutputMode);
     }
 
-    printf("\033[?25h\033[?1049l\033[0m");
-    fflush(stdout);
     terminalReady = false;
 }
 
@@ -208,9 +209,9 @@ void PlatformExitTerminal(void)
         return;
     }
 
-    tcsetattr(STDIN_FILENO, TCSANOW, &originalTermios);
-    printf("\033[?25h\033[?1049l\033[0m");
+    printf("\033[0m\033[2J\033[H\033[?25h\033[?1049l");
     fflush(stdout);
+    tcsetattr(STDIN_FILENO, TCSANOW, &originalTermios);
     terminalReady = false;
 }
 
