@@ -116,7 +116,7 @@ void ProjectilesUpdate(Game *game, float dt)
         x = GameRound(projectile->position.x);
         y = GameRound(projectile->position.y);
 
-        if (projectile->lifetime <= 0.0f || GameMapIsBlocked(x, y)) {
+        if (projectile->lifetime <= 0.0f || GameMapIsBlocked(game, x, y)) {
             projectile->active = false;
         }
     }

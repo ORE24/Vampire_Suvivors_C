@@ -1,42 +1,27 @@
 # 터미널 서바이버즈: C MVP
 
-터미널 환경에서 실행되는 뱀파이어 서바이벌 스타일 C언어 MVP입니다.  
-`raylib`, `SDL`, `ncurses` 같은 외부 그래픽 라이브러리를 쓰지 않고, ANSI escape sequence와 터미널 bell 소리만 사용합니다.
+터미널 환경에서 실행되는 뱀파이어 서바이벌 스타일 C언어 MVP입니다. `raylib`, `SDL`, `ncurses` 같은 외부 그래픽 라이브러리를 쓰지 않고 ANSI escape sequence와 터미널 bell 소리만 사용합니다.
 
 macOS와 Windows를 모두 지원하도록 터미널 입출력 코드를 플랫폼별로 분리했습니다.
+게임 맵은 `96 x 30` 타일로 고정되어 있어 터미널 창 크기, OS, 디스플레이 크기가 달라도 같은 좌표와 규칙으로 진행됩니다.
 
-## 빌드: macOS
+## 빠른 실행
+
+macOS:
 
 ```sh
 make
-```
-
-## 실행: macOS
-
-```sh
 make run
 ```
 
-## 빌드: Windows
-
-Windows에서는 MinGW-w64의 `gcc`가 설치되어 있고 PATH에 잡혀 있어야 합니다. Windows Terminal 또는 PowerShell 사용을 권장합니다.
+Windows:
 
 ```bat
 build-windows.bat
-```
-
-## 실행: Windows
-
-```bat
 build\vampire-survivors-c.exe
 ```
 
-MSYS2/Git Bash 환경에서는 Windows에서도 아래 명령을 사용할 수 있습니다.
-
-```sh
-make
-make run
-```
+MSYS2/Git Bash 환경에서는 Windows에서도 `make`, `make run`을 사용할 수 있습니다.
 
 ## 조작법
 
@@ -44,39 +29,27 @@ make run
 - 시작: `S` 또는 `Enter`
 - 랭킹 화면: 초기 화면에서 `R`
 - 레벨업 선택: `1`, `2`, `3` 또는 방향키로 선택 후 `Enter` / `Space`
+- 일시정지/재개: 게임 중 `Esc`
 - 게임 종료 후 재시작: `R`
 - 랭킹/결과 화면에서 초기 화면으로 돌아가기: `B` 또는 `Esc`
 - 소리 켜기/끄기: `M`
-- 종료: `Q`
+- 현재 런 종료: 게임 중 `Q`
+- 프로그램 종료: 초기 화면에서 `Q` 또는 `Esc`
 
-## MVP 규칙
+## 프로젝트 문서
 
-- 승리 조건: 10분 동안 생존하면 승리합니다.
-- 패배 조건: 플레이어 HP가 0이 되면 게임오버입니다.
-- 맵: 벽과 장애물이 있는 지하 묘지형 맵 1개를 사용합니다.
-- 적 3종:
-  - `b`: HP 1
-  - `G`: HP 3
-  - `V`: HP 40
-- 자동 공격 무기 2종:
-  - 마법탄: 가장 가까운 적을 조준해 `*` 투사체를 발사합니다.
-  - 신성 오라: 플레이어 주변 적에게 주기적으로 범위 피해를 줍니다.
-- 적을 처치하면 `+` 경험치가 떨어집니다.
-- 경험치는 플레이어가 가까이 가면 자동으로 끌려옵니다.
-- 경험치를 충분히 모으면 레벨업하고, 게임이 잠시 멈춘 상태에서 강화 3개 중 하나를 선택합니다.
-- 랭킹은 `scores.txt`에 저장되며 초기 화면에서 확인할 수 있습니다.
+- [2026-05-17 1차 회의록](docs/MEETING_2026-05-17.md)
+- [GitHub 협업 가이드](docs/GITHUB_WORKFLOW.md)
+- [프로젝트 파일 구조 및 코드 설명](docs/PROJECT_STRUCTURE.md)
+- [게임 규칙 문서](docs/GAME_RULES.md)
+- [마일스톤 문서](docs/MILESTONES.md)
+- [개발 가이드 및 체크리스트](docs/DEVELOPMENT_GUIDE.md)
 
-## 터미널 사운드
+## 현재 협업 브랜치
 
-공격, 경험치 획득, 레벨업, 피격, 게임오버, 승리 이벤트가 발생하면 터미널 bell(`\a`)을 울립니다.  
-일부 macOS/Windows 터미널은 기본 설정에서 bell 소리가 꺼져 있을 수 있습니다. 게임 실행 중 `M`을 눌러 사운드를 켜거나 끌 수 있습니다.
+- `JAE`: JAE 작업 브랜치
+- `TAE`: TAE 작업 브랜치
+- `JONG`: JONG 작업 브랜치
+- `main`: Pull Request로 검토가 끝난 안정 버전
 
-## 협업 브랜치
-
-팀원별 작업 브랜치는 다음과 같이 나눕니다.
-
-- `JONG`
-- `TAE`
-- `JAE`
-
-각 브랜치는 `main`의 최신 MVP를 기준으로 만들어졌습니다. 기능 작업은 본인 브랜치에서 진행한 뒤 Pull Request로 `main`에 합치는 방식으로 진행합니다.
+작업은 각자 브랜치에서 진행하고, 완성된 내용은 Pull Request로 `main`에 합칩니다.

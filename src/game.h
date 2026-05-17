@@ -3,8 +3,10 @@
 
 #include <stdbool.h>
 
-#define MAP_WIDTH 64
-#define MAP_HEIGHT 22
+#define DEFAULT_MAP_WIDTH 96
+#define DEFAULT_MAP_HEIGHT 30
+#define MAX_MAP_WIDTH DEFAULT_MAP_WIDTH
+#define MAX_MAP_HEIGHT DEFAULT_MAP_HEIGHT
 
 #define MAX_ENEMIES 96
 #define MAX_PROJECTILES 96
@@ -22,6 +24,7 @@ typedef enum AppScreen {
 
 typedef enum GameMode {
     GAME_MODE_PLAYING = 0,
+    GAME_MODE_PAUSED,
     GAME_MODE_LEVEL_UP,
     GAME_MODE_GAME_OVER,
     GAME_MODE_VICTORY
@@ -60,6 +63,7 @@ typedef struct InputState {
     bool ranking;
     bool restart;
     bool quit;
+    bool pauseToggle;
     bool muteToggle;
     int number;
 } InputState;
@@ -133,6 +137,8 @@ typedef struct UpgradeOption {
 
 typedef struct Game {
     GameMode mode;
+    int mapWidth;
+    int mapHeight;
     Player player;
     Enemy enemies[MAX_ENEMIES];
     Projectile projectiles[MAX_PROJECTILES];
@@ -161,8 +167,8 @@ Vec2 GameAdd(Vec2 a, Vec2 b);
 Vec2 GameScale(Vec2 v, float scale);
 int GameRound(float value);
 int GameClampInt(int value, int min, int max);
-bool GameMapIsBlocked(int x, int y);
-char GameMapTile(int x, int y);
+bool GameMapIsBlocked(const Game *game, int x, int y);
+char GameMapTile(const Game *game, int x, int y);
 
 void GameInit(Game *game);
 void GameUpdate(Game *game, const InputState *input, float dt);

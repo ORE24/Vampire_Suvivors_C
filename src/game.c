@@ -80,39 +80,72 @@ int GameClampInt(int value, int min, int max)
     return value;
 }
 
-char GameMapTile(int x, int y)
+char GameMapTile(const Game *game, int x, int y)
 {
-    if (x < 0 || x >= MAP_WIDTH || y < 0 || y >= MAP_HEIGHT) {
+    const int mapWidth = game->mapWidth;
+    const int mapHeight = game->mapHeight;
+    const int leftWallX = mapWidth * 28 / 100;
+    const int rightWallX = mapWidth * 72 / 100;
+    const int wallTopY = mapHeight * 22 / 100;
+    const int wallBottomY = mapHeight * 78 / 100;
+    const int centerY = mapHeight / 2;
+    const int upperWallY = mapHeight * 32 / 100;
+    const int lowerWallY = mapHeight * 68 / 100;
+    const int hallLeftX = mapWidth * 39 / 100;
+    const int hallRightX = mapWidth * 61 / 100;
+    const int centerX = mapWidth / 2;
+    const int tombLeftX = mapWidth * 14 / 100;
+    const int tombRightX = mapWidth * 86 / 100;
+    const int tombTopY = mapHeight * 23 / 100;
+    const int tombBottomY = mapHeight * 77 / 100;
+
+    if (x < 0 || x >= mapWidth || y < 0 || y >= mapHeight) {
         return '#';
     }
 
-    if (x == 0 || x == MAP_WIDTH - 1 || y == 0 || y == MAP_HEIGHT - 1) {
+    if (x == 0 || x == mapWidth - 1 || y == 0 || y == mapHeight - 1) {
         return '#';
     }
 
-    if ((x == 18 || x == 45) && y >= 5 && y <= 16 && y != 10 && y != 11) {
+    if ((x == leftWallX || x == rightWallX) &&
+        y >= wallTopY &&
+        y <= wallBottomY &&
+        y != centerY &&
+        y != centerY - 1) {
         return '#';
     }
 
-    if (y == 7 && x >= 25 && x <= 38 && x != 31 && x != 32) {
+    if (y == upperWallY &&
+        x >= hallLeftX &&
+        x <= hallRightX &&
+        x != centerX &&
+        x != centerX - 1) {
         return '#';
     }
 
-    if (y == 15 && x >= 25 && x <= 38 && x != 31 && x != 32) {
+    if (y == lowerWallY &&
+        x >= hallLeftX &&
+        x <= hallRightX &&
+        x != centerX &&
+        x != centerX - 1) {
         return '#';
     }
 
-    if ((x == 9 && y == 5) || (x == 54 && y == 5) ||
-        (x == 9 && y == 16) || (x == 54 && y == 16)) {
+    if ((x == tombLeftX && y == tombTopY) ||
+        (x == tombRightX && y == tombTopY) ||
+        (x == tombLeftX && y == tombBottomY) ||
+        (x == tombRightX && y == tombBottomY) ||
+        (x == centerX - 12 && y == centerY) ||
+        (x == centerX + 12 && y == centerY)) {
         return 'T';
     }
 
     return '.';
 }
 
-bool GameMapIsBlocked(int x, int y)
+bool GameMapIsBlocked(const Game *game, int x, int y)
 {
-    const char tile = GameMapTile(x, y);
+    const char tile = GameMapTile(game, x, y);
     return tile == '#' || tile == 'T';
 }
 
@@ -125,8 +158,10 @@ void GameInit(Game *game)
 {
     memset(game, 0, sizeof(*game));
 
+    game->mapWidth = DEFAULT_MAP_WIDTH;
+    game->mapHeight = DEFAULT_MAP_HEIGHT;
     game->mode = GAME_MODE_PLAYING;
-    game->player.position = (Vec2){MAP_WIDTH / 2.0f, MAP_HEIGHT / 2.0f};
+    game->player.position = (Vec2){game->mapWidth / 2.0f, game->mapHeight / 2.0f};
     game->player.maxHealth = 12;
     game->player.health = 12;
     game->player.level = 1;
@@ -211,6 +246,18 @@ void GameApplyUpgrade(Game *game, int index)
 void GameUpdate(Game *game, const InputState *input, float dt)
 {
     if (game->mode == GAME_MODE_GAME_OVER || game->mode == GAME_MODE_VICTORY) {
+        return;
+    }
+
+    if (input->pauseToggle && game->mode == GAME_MODE_PLAYING) {
+        game->mode = GAME_MODE_PAUSED;
+        return;
+    }
+
+    if (game->mode == GAME_MODE_PAUSED) {
+        if (input->pauseToggle) {
+            game->mode = GAME_MODE_PLAYING;
+        }
         return;
     }
 
