@@ -72,9 +72,9 @@ static void DrawBar(const char *label, int current, int max, int width)
     printf("] %d/%d", current, max);
 }
 
-static void PutCell(Cell grid[MAP_HEIGHT][MAP_WIDTH], int x, int y, char glyph, CellColor color)
+static void PutCell(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH], int x, int y, char glyph, CellColor color)
 {
-    if (x < 0 || x >= MAP_WIDTH || y < 0 || y >= MAP_HEIGHT) {
+    if (x < 0 || x >= game->mapWidth || y < 0 || y >= game->mapHeight) {
         return;
     }
 
@@ -82,11 +82,11 @@ static void PutCell(Cell grid[MAP_HEIGHT][MAP_WIDTH], int x, int y, char glyph, 
     grid[y][x].color = color;
 }
 
-static void BuildGrid(const Game *game, Cell grid[MAP_HEIGHT][MAP_WIDTH])
+static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH])
 {
-    for (int y = 0; y < MAP_HEIGHT; y++) {
-        for (int x = 0; x < MAP_WIDTH; x++) {
-            const char tile = GameMapTile(x, y);
+    for (int y = 0; y < game->mapHeight; y++) {
+        for (int x = 0; x < game->mapWidth; x++) {
+            const char tile = GameMapTile(game, x, y);
             grid[y][x].glyph = tile == '.' ? ' ' : tile;
             grid[y][x].color = tile == '.' ? CELL_DIM : CELL_WALL;
         }
@@ -102,8 +102,8 @@ static void BuildGrid(const Game *game, Cell grid[MAP_HEIGHT][MAP_WIDTH])
             for (int x = centerX - radius; x <= centerX + radius; x++) {
                 const int dx = x - centerX;
                 const int dy = y - centerY;
-                if (dx * dx + dy * dy <= radiusSquared && !GameMapIsBlocked(x, y)) {
-                    PutCell(grid, x, y, '~', CELL_AURA);
+                if (dx * dx + dy * dy <= radiusSquared && !GameMapIsBlocked(game, x, y)) {
+                    PutCell(game, grid, x, y, '~', CELL_AURA);
                 }
             }
         }
@@ -112,14 +112,14 @@ static void BuildGrid(const Game *game, Cell grid[MAP_HEIGHT][MAP_WIDTH])
     for (int i = 0; i < MAX_PICKUPS; i++) {
         const Pickup *pickup = &game->pickups[i];
         if (pickup->active) {
-            PutCell(grid, GameRound(pickup->position.x), GameRound(pickup->position.y), '+', CELL_XP);
+            PutCell(game, grid, GameRound(pickup->position.x), GameRound(pickup->position.y), '+', CELL_XP);
         }
     }
 
     for (int i = 0; i < MAX_PROJECTILES; i++) {
         const Projectile *projectile = &game->projectiles[i];
         if (projectile->active) {
-            PutCell(grid, GameRound(projectile->position.x), GameRound(projectile->position.y), projectile->glyph, CELL_PROJECTILE);
+            PutCell(game, grid, GameRound(projectile->position.x), GameRound(projectile->position.y), projectile->glyph, CELL_PROJECTILE);
         }
     }
 
@@ -137,11 +137,11 @@ static void BuildGrid(const Game *game, Cell grid[MAP_HEIGHT][MAP_WIDTH])
             color = CELL_ENEMY_HIGH;
         }
 
-        PutCell(grid, GameRound(enemy->position.x), GameRound(enemy->position.y), enemy->glyph, color);
+        PutCell(game, grid, GameRound(enemy->position.x), GameRound(enemy->position.y), enemy->glyph, color);
     }
 
     if (game->player.invulnerableTimer <= 0.0f || ((int)(game->player.invulnerableTimer * 12.0f) % 2) == 0) {
-        PutCell(grid, GameRound(game->player.position.x), GameRound(game->player.position.y), '@', CELL_PLAYER);
+        PutCell(game, grid, GameRound(game->player.position.x), GameRound(game->player.position.y), '@', CELL_PLAYER);
     }
 }
 
@@ -194,7 +194,7 @@ void UiDrawRanking(const RankingEntry entries[MAX_RANKINGS], int count)
 
 void UiDrawGame(const Game *game)
 {
-    Cell grid[MAP_HEIGHT][MAP_WIDTH];
+    Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH];
     const int seconds = (int)game->elapsed;
     const int remaining = (int)SURVIVAL_SECONDS - seconds;
 
@@ -222,8 +222,8 @@ void UiDrawGame(const Game *game)
         game->weapons[WEAPON_HOLY_AURA].cooldown);
     printf("Legend: \033[1;36m@\033[0m you  \033[1;31mb\033[0m HP1  \033[38;5;208mG\033[0m HP3  \033[1;35mV\033[0m HP40  \033[1;33m*\033[0m bolt  \033[1;32m+\033[0m XP\n\n");
 
-    for (int y = 0; y < MAP_HEIGHT; y++) {
-        for (int x = 0; x < MAP_WIDTH; x++) {
+    for (int y = 0; y < game->mapHeight; y++) {
+        for (int x = 0; x < game->mapWidth; x++) {
             printf("%s%c", ColorCode(grid[y][x].color), grid[y][x].glyph);
         }
         printf("\033[0m\n");

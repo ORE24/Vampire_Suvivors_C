@@ -7,6 +7,18 @@
 #include <string.h>
 #include <time.h>
 
+#define HUD_RESERVED_ROWS 7
+
+static void GetMapSizeFromTerminal(int *mapWidth, int *mapHeight)
+{
+    int columns;
+    int rows;
+
+    PlatformGetTerminalSize(&columns, &rows);
+    *mapWidth = GameClampInt(columns - 1, MIN_MAP_WIDTH, MAX_MAP_WIDTH);
+    *mapHeight = GameClampInt(rows - HUD_RESERVED_ROWS, MIN_MAP_HEIGHT, MAX_MAP_HEIGHT);
+}
+
 static void ReadInput(InputState *input)
 {
     char ch;
@@ -73,11 +85,13 @@ int main(int argc, char **argv)
     bool soundEnabled = true;
     bool scoreSaved = false;
     double previousTime;
+    int mapWidth = DEFAULT_MAP_WIDTH;
+    int mapHeight = DEFAULT_MAP_HEIGHT;
 
     srand((unsigned int)time(NULL));
 
     if (argc > 1 && strcmp(argv[1], "--smoke-test") == 0) {
-        GameInit(&game);
+        GameInit(&game, DEFAULT_MAP_WIDTH, DEFAULT_MAP_HEIGHT);
         RankingLoad(rankings, &rankingCount);
         printf("smoke ok: hp=%d level=%d weapons=%d rankings=%d\n",
             game.player.health,
@@ -88,7 +102,8 @@ int main(int argc, char **argv)
     }
 
     PlatformEnterTerminal();
-    GameInit(&game);
+    GetMapSizeFromTerminal(&mapWidth, &mapHeight);
+    GameInit(&game, mapWidth, mapHeight);
     RankingLoad(rankings, &rankingCount);
     previousTime = PlatformNowSeconds();
 
@@ -103,6 +118,9 @@ int main(int argc, char **argv)
         }
 
         ReadInput(&input);
+        GetMapSizeFromTerminal(&mapWidth, &mapHeight);
+        GameResizeMap(&game, mapWidth, mapHeight);
+
         if (input.muteToggle) {
             soundEnabled = !soundEnabled;
         }
@@ -114,7 +132,7 @@ int main(int argc, char **argv)
                 RankingLoad(rankings, &rankingCount);
                 screen = SCREEN_RANKING;
             } else if (input.start || input.select) {
-                GameInit(&game);
+                GameInit(&game, mapWidth, mapHeight);
                 scoreSaved = false;
                 screen = SCREEN_GAME;
             }
@@ -126,7 +144,7 @@ int main(int argc, char **argv)
             } else if (input.back) {
                 screen = SCREEN_TITLE;
             } else if (input.start || input.select) {
-                GameInit(&game);
+                GameInit(&game, mapWidth, mapHeight);
                 scoreSaved = false;
                 screen = SCREEN_GAME;
             }
@@ -147,7 +165,7 @@ int main(int argc, char **argv)
             }
 
             if ((game.mode == GAME_MODE_GAME_OVER || game.mode == GAME_MODE_VICTORY) && input.restart) {
-                GameInit(&game);
+                GameInit(&game, mapWidth, mapHeight);
                 scoreSaved = false;
             } else if ((game.mode == GAME_MODE_GAME_OVER || game.mode == GAME_MODE_VICTORY) && input.back) {
                 screen = SCREEN_TITLE;

@@ -140,10 +140,36 @@ bool PlatformReadByte(char *out)
     return true;
 }
 
+void PlatformGetTerminalSize(int *columns, int *rows)
+{
+    CONSOLE_SCREEN_BUFFER_INFO info;
+
+    if (columns != NULL) {
+        *columns = 100;
+    }
+    if (rows != NULL) {
+        *rows = 36;
+    }
+
+    if (outputHandle == NULL || outputHandle == INVALID_HANDLE_VALUE) {
+        outputHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+    }
+
+    if (outputHandle != INVALID_HANDLE_VALUE && GetConsoleScreenBufferInfo(outputHandle, &info)) {
+        if (columns != NULL) {
+            *columns = info.srWindow.Right - info.srWindow.Left + 1;
+        }
+        if (rows != NULL) {
+            *rows = info.srWindow.Bottom - info.srWindow.Top + 1;
+        }
+    }
+}
+
 #else
 
 #include <sys/select.h>
 #include <sys/time.h>
+#include <sys/ioctl.h>
 #include <termios.h>
 #include <time.h>
 #include <unistd.h>
@@ -223,6 +249,27 @@ bool PlatformReadByte(char *out)
     }
 
     return read(STDIN_FILENO, out, 1) == 1;
+}
+
+void PlatformGetTerminalSize(int *columns, int *rows)
+{
+    struct winsize size;
+
+    if (columns != NULL) {
+        *columns = 100;
+    }
+    if (rows != NULL) {
+        *rows = 36;
+    }
+
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &size) == 0) {
+        if (columns != NULL && size.ws_col > 0) {
+            *columns = size.ws_col;
+        }
+        if (rows != NULL && size.ws_row > 0) {
+            *rows = size.ws_row;
+        }
+    }
 }
 
 #endif

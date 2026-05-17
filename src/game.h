@@ -3,8 +3,12 @@
 
 #include <stdbool.h>
 
-#define MAP_WIDTH 96
-#define MAP_HEIGHT 30
+#define DEFAULT_MAP_WIDTH 96
+#define DEFAULT_MAP_HEIGHT 30
+#define MIN_MAP_WIDTH 64
+#define MIN_MAP_HEIGHT 22
+#define MAX_MAP_WIDTH 240
+#define MAX_MAP_HEIGHT 80
 
 #define MAX_ENEMIES 96
 #define MAX_PROJECTILES 96
@@ -133,6 +137,8 @@ typedef struct UpgradeOption {
 
 typedef struct Game {
     GameMode mode;
+    int mapWidth;
+    int mapHeight;
     Player player;
     Enemy enemies[MAX_ENEMIES];
     Projectile projectiles[MAX_PROJECTILES];
@@ -161,10 +167,11 @@ Vec2 GameAdd(Vec2 a, Vec2 b);
 Vec2 GameScale(Vec2 v, float scale);
 int GameRound(float value);
 int GameClampInt(int value, int min, int max);
-bool GameMapIsBlocked(int x, int y);
-char GameMapTile(int x, int y);
+bool GameMapIsBlocked(const Game *game, int x, int y);
+char GameMapTile(const Game *game, int x, int y);
 
-void GameInit(Game *game);
+void GameInit(Game *game, int mapWidth, int mapHeight);
+void GameResizeMap(Game *game, int mapWidth, int mapHeight);
 void GameUpdate(Game *game, const InputState *input, float dt);
 void GameApplyUpgrade(Game *game, int index);
 void GameRequestSound(Game *game, unsigned int flags);

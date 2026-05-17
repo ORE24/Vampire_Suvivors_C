@@ -80,28 +80,30 @@ int GameClampInt(int value, int min, int max)
     return value;
 }
 
-char GameMapTile(int x, int y)
+char GameMapTile(const Game *game, int x, int y)
 {
-    const int leftWallX = MAP_WIDTH * 28 / 100;
-    const int rightWallX = MAP_WIDTH * 72 / 100;
-    const int wallTopY = MAP_HEIGHT * 22 / 100;
-    const int wallBottomY = MAP_HEIGHT * 78 / 100;
-    const int centerY = MAP_HEIGHT / 2;
-    const int upperWallY = MAP_HEIGHT * 32 / 100;
-    const int lowerWallY = MAP_HEIGHT * 68 / 100;
-    const int hallLeftX = MAP_WIDTH * 39 / 100;
-    const int hallRightX = MAP_WIDTH * 61 / 100;
-    const int centerX = MAP_WIDTH / 2;
-    const int tombLeftX = MAP_WIDTH * 14 / 100;
-    const int tombRightX = MAP_WIDTH * 86 / 100;
-    const int tombTopY = MAP_HEIGHT * 23 / 100;
-    const int tombBottomY = MAP_HEIGHT * 77 / 100;
+    const int mapWidth = game->mapWidth;
+    const int mapHeight = game->mapHeight;
+    const int leftWallX = mapWidth * 28 / 100;
+    const int rightWallX = mapWidth * 72 / 100;
+    const int wallTopY = mapHeight * 22 / 100;
+    const int wallBottomY = mapHeight * 78 / 100;
+    const int centerY = mapHeight / 2;
+    const int upperWallY = mapHeight * 32 / 100;
+    const int lowerWallY = mapHeight * 68 / 100;
+    const int hallLeftX = mapWidth * 39 / 100;
+    const int hallRightX = mapWidth * 61 / 100;
+    const int centerX = mapWidth / 2;
+    const int tombLeftX = mapWidth * 14 / 100;
+    const int tombRightX = mapWidth * 86 / 100;
+    const int tombTopY = mapHeight * 23 / 100;
+    const int tombBottomY = mapHeight * 77 / 100;
 
-    if (x < 0 || x >= MAP_WIDTH || y < 0 || y >= MAP_HEIGHT) {
+    if (x < 0 || x >= mapWidth || y < 0 || y >= mapHeight) {
         return '#';
     }
 
-    if (x == 0 || x == MAP_WIDTH - 1 || y == 0 || y == MAP_HEIGHT - 1) {
+    if (x == 0 || x == mapWidth - 1 || y == 0 || y == mapHeight - 1) {
         return '#';
     }
 
@@ -141,9 +143,9 @@ char GameMapTile(int x, int y)
     return '.';
 }
 
-bool GameMapIsBlocked(int x, int y)
+bool GameMapIsBlocked(const Game *game, int x, int y)
 {
-    const char tile = GameMapTile(x, y);
+    const char tile = GameMapTile(game, x, y);
     return tile == '#' || tile == 'T';
 }
 
@@ -152,12 +154,14 @@ void GameRequestSound(Game *game, unsigned int flags)
     game->pendingSounds |= flags;
 }
 
-void GameInit(Game *game)
+void GameInit(Game *game, int mapWidth, int mapHeight)
 {
     memset(game, 0, sizeof(*game));
 
+    game->mapWidth = GameClampInt(mapWidth, MIN_MAP_WIDTH, MAX_MAP_WIDTH);
+    game->mapHeight = GameClampInt(mapHeight, MIN_MAP_HEIGHT, MAX_MAP_HEIGHT);
     game->mode = GAME_MODE_PLAYING;
-    game->player.position = (Vec2){MAP_WIDTH / 2.0f, MAP_HEIGHT / 2.0f};
+    game->player.position = (Vec2){game->mapWidth / 2.0f, game->mapHeight / 2.0f};
     game->player.maxHealth = 12;
     game->player.health = 12;
     game->player.level = 1;
@@ -196,6 +200,48 @@ void GameInit(Game *game)
     game->auraPulseTimer = 0.0f;
     game->pendingSounds = 0;
     GenerateUpgrades(game);
+}
+
+void GameResizeMap(Game *game, int mapWidth, int mapHeight)
+{
+    const int nextWidth = GameClampInt(mapWidth, MIN_MAP_WIDTH, MAX_MAP_WIDTH);
+    const int nextHeight = GameClampInt(mapHeight, MIN_MAP_HEIGHT, MAX_MAP_HEIGHT);
+
+    if (game->mapWidth == nextWidth && game->mapHeight == nextHeight) {
+        return;
+    }
+
+    game->mapWidth = nextWidth;
+    game->mapHeight = nextHeight;
+    game->player.position.x = (float)GameClampInt(GameRound(game->player.position.x), 1, game->mapWidth - 2);
+    game->player.position.y = (float)GameClampInt(GameRound(game->player.position.y), 1, game->mapHeight - 2);
+
+    for (int i = 0; i < MAX_ENEMIES; i++) {
+        Enemy *enemy = &game->enemies[i];
+        if (enemy->active) {
+            enemy->position.x = (float)GameClampInt(GameRound(enemy->position.x), 1, game->mapWidth - 2);
+            enemy->position.y = (float)GameClampInt(GameRound(enemy->position.y), 1, game->mapHeight - 2);
+        }
+    }
+
+    for (int i = 0; i < MAX_PICKUPS; i++) {
+        Pickup *pickup = &game->pickups[i];
+        if (pickup->active) {
+            pickup->position.x = (float)GameClampInt(GameRound(pickup->position.x), 1, game->mapWidth - 2);
+            pickup->position.y = (float)GameClampInt(GameRound(pickup->position.y), 1, game->mapHeight - 2);
+        }
+    }
+
+    for (int i = 0; i < MAX_PROJECTILES; i++) {
+        Projectile *projectile = &game->projectiles[i];
+        if (projectile->active &&
+            (projectile->position.x < 1.0f ||
+                projectile->position.x > (float)(game->mapWidth - 2) ||
+                projectile->position.y < 1.0f ||
+                projectile->position.y > (float)(game->mapHeight - 2))) {
+            projectile->active = false;
+        }
+    }
 }
 
 void GameApplyUpgrade(Game *game, int index)
