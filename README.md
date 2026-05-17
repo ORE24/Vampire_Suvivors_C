@@ -1,17 +1,40 @@
 # 터미널 서바이버즈: C MVP
 
 터미널 환경에서 실행되는 뱀파이어 서바이벌 스타일 C언어 MVP입니다.  
-`raylib`, `SDL`, `ncurses` 같은 외부 그래픽 라이브러리를 쓰지 않고, ANSI escape sequence, POSIX 터미널 입력, 터미널 bell 소리만 사용합니다.
+`raylib`, `SDL`, `ncurses` 같은 외부 그래픽 라이브러리를 쓰지 않고, ANSI escape sequence와 터미널 bell 소리만 사용합니다.
 
-## 빌드
+macOS와 Windows를 모두 지원하도록 터미널 입출력 코드를 플랫폼별로 분리했습니다.
+
+## 빌드: macOS
 
 ```sh
 make
 ```
 
-## 실행
+## 실행: macOS
 
 ```sh
+make run
+```
+
+## 빌드: Windows
+
+Windows에서는 MinGW-w64의 `gcc`가 설치되어 있고 PATH에 잡혀 있어야 합니다. Windows Terminal 또는 PowerShell 사용을 권장합니다.
+
+```bat
+build-windows.bat
+```
+
+## 실행: Windows
+
+```bat
+build\vampire-survivors-c.exe
+```
+
+MSYS2/Git Bash 환경에서는 Windows에서도 아래 명령을 사용할 수 있습니다.
+
+```sh
+make
 make run
 ```
 
@@ -46,7 +69,7 @@ make run
 ## 터미널 사운드
 
 공격, 경험치 획득, 레벨업, 피격, 게임오버, 승리 이벤트가 발생하면 터미널 bell(`\a`)을 울립니다.  
-일부 터미널은 기본 설정에서 bell 소리가 꺼져 있을 수 있습니다. 게임 실행 중 `M`을 눌러 사운드를 켜거나 끌 수 있습니다.
+일부 macOS/Windows 터미널은 기본 설정에서 bell 소리가 꺼져 있을 수 있습니다. 게임 실행 중 `M`을 눌러 사운드를 켜거나 끌 수 있습니다.
 
 ## 협업 브랜치
 

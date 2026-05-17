@@ -1,91 +1,11 @@
 #include "game.h"
+#include "platform.h"
 
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/select.h>
-#include <sys/time.h>
-#include <termios.h>
 #include <time.h>
-#include <unistd.h>
-
-static struct termios originalTermios;
-static bool terminalReady = false;
-
-static void TerminalExit(void)
-{
-    if (!terminalReady) {
-        return;
-    }
-
-    tcsetattr(STDIN_FILENO, TCSANOW, &originalTermios);
-    printf("\033[?25h\033[?1049l\033[0m");
-    fflush(stdout);
-    terminalReady = false;
-}
-
-static void TerminalEnter(void)
-{
-    struct termios raw;
-
-    if (tcgetattr(STDIN_FILENO, &originalTermios) != 0) {
-        fprintf(stderr, "Failed to read terminal settings.\n");
-        exit(1);
-    }
-
-    raw = originalTermios;
-    raw.c_lflag &= (tcflag_t)~(ECHO | ICANON);
-    raw.c_cc[VMIN] = 0;
-    raw.c_cc[VTIME] = 0;
-
-    if (tcsetattr(STDIN_FILENO, TCSANOW, &raw) != 0) {
-        fprintf(stderr, "Failed to enter raw terminal mode.\n");
-        exit(1);
-    }
-
-    terminalReady = true;
-    atexit(TerminalExit);
-    printf("\033[?1049h\033[?25l\033[2J\033[H");
-    fflush(stdout);
-}
-
-static double NowSeconds(void)
-{
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return (double)tv.tv_sec + (double)tv.tv_usec / 1000000.0;
-}
-
-static void SleepFrame(double seconds)
-{
-    struct timespec ts;
-
-    if (seconds <= 0.0) {
-        return;
-    }
-
-    ts.tv_sec = (time_t)seconds;
-    ts.tv_nsec = (long)((seconds - (double)ts.tv_sec) * 1000000000.0);
-    nanosleep(&ts, NULL);
-}
-
-static bool ReadByte(char *out)
-{
-    fd_set set;
-    struct timeval timeout;
-
-    FD_ZERO(&set);
-    FD_SET(STDIN_FILENO, &set);
-    timeout.tv_sec = 0;
-    timeout.tv_usec = 0;
-
-    if (select(STDIN_FILENO + 1, &set, NULL, NULL, &timeout) <= 0) {
-        return false;
-    }
-
-    return read(STDIN_FILENO, out, 1) == 1;
-}
 
 static void ReadInput(InputState *input)
 {
@@ -94,13 +14,13 @@ static void ReadInput(InputState *input)
     memset(input, 0, sizeof(*input));
     input->number = 0;
 
-    while (ReadByte(&ch)) {
+    while (PlatformReadByte(&ch)) {
         if (ch == '\033') {
             char next;
             char code;
 
             input->back = true;
-            if (ReadByte(&next) && next == '[' && ReadByte(&code)) {
+            if (PlatformReadByte(&next) && next == '[' && PlatformReadByte(&code)) {
                 input->back = false;
                 if (code == 'A') {
                     input->up = true;
@@ -167,14 +87,14 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    TerminalEnter();
+    PlatformEnterTerminal();
     GameInit(&game);
     RankingLoad(rankings, &rankingCount);
-    previousTime = NowSeconds();
+    previousTime = PlatformNowSeconds();
 
     while (running) {
         InputState input;
-        const double currentTime = NowSeconds();
+        const double currentTime = PlatformNowSeconds();
         float dt = (float)(currentTime - previousTime);
         previousTime = currentTime;
 
@@ -238,9 +158,9 @@ int main(int argc, char **argv)
             game.pendingSounds = 0;
         }
 
-        SleepFrame(1.0 / 24.0);
+        PlatformSleepFrame(1.0 / 24.0);
     }
 
-    TerminalExit();
+    PlatformExitTerminal();
     return 0;
 }
