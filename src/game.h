@@ -3,8 +3,8 @@
 
 #include <stdbool.h>
 
-#define MAP_WIDTH 64
-#define MAP_HEIGHT 22
+#define MAP_WIDTH 96
+#define MAP_HEIGHT 30
 
 #define MAX_ENEMIES 96
 #define MAX_PROJECTILES 96

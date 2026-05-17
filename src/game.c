@@ -82,6 +82,21 @@ int GameClampInt(int value, int min, int max)
 
 char GameMapTile(int x, int y)
 {
+    const int leftWallX = MAP_WIDTH * 28 / 100;
+    const int rightWallX = MAP_WIDTH * 72 / 100;
+    const int wallTopY = MAP_HEIGHT * 22 / 100;
+    const int wallBottomY = MAP_HEIGHT * 78 / 100;
+    const int centerY = MAP_HEIGHT / 2;
+    const int upperWallY = MAP_HEIGHT * 32 / 100;
+    const int lowerWallY = MAP_HEIGHT * 68 / 100;
+    const int hallLeftX = MAP_WIDTH * 39 / 100;
+    const int hallRightX = MAP_WIDTH * 61 / 100;
+    const int centerX = MAP_WIDTH / 2;
+    const int tombLeftX = MAP_WIDTH * 14 / 100;
+    const int tombRightX = MAP_WIDTH * 86 / 100;
+    const int tombTopY = MAP_HEIGHT * 23 / 100;
+    const int tombBottomY = MAP_HEIGHT * 77 / 100;
+
     if (x < 0 || x >= MAP_WIDTH || y < 0 || y >= MAP_HEIGHT) {
         return '#';
     }
@@ -90,20 +105,36 @@ char GameMapTile(int x, int y)
         return '#';
     }
 
-    if ((x == 18 || x == 45) && y >= 5 && y <= 16 && y != 10 && y != 11) {
+    if ((x == leftWallX || x == rightWallX) &&
+        y >= wallTopY &&
+        y <= wallBottomY &&
+        y != centerY &&
+        y != centerY - 1) {
         return '#';
     }
 
-    if (y == 7 && x >= 25 && x <= 38 && x != 31 && x != 32) {
+    if (y == upperWallY &&
+        x >= hallLeftX &&
+        x <= hallRightX &&
+        x != centerX &&
+        x != centerX - 1) {
         return '#';
     }
 
-    if (y == 15 && x >= 25 && x <= 38 && x != 31 && x != 32) {
+    if (y == lowerWallY &&
+        x >= hallLeftX &&
+        x <= hallRightX &&
+        x != centerX &&
+        x != centerX - 1) {
         return '#';
     }
 
-    if ((x == 9 && y == 5) || (x == 54 && y == 5) ||
-        (x == 9 && y == 16) || (x == 54 && y == 16)) {
+    if ((x == tombLeftX && y == tombTopY) ||
+        (x == tombRightX && y == tombTopY) ||
+        (x == tombLeftX && y == tombBottomY) ||
+        (x == tombRightX && y == tombBottomY) ||
+        (x == centerX - 12 && y == centerY) ||
+        (x == centerX + 12 && y == centerY)) {
         return 'T';
     }
 
