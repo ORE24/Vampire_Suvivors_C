@@ -1,0 +1,268 @@
+#include "game.h"
+
+#include <math.h>
+#include <stdlib.h>
+
+static int SignInt(int value)
+{
+    if (value < 0) {
+        return -1;
+    }
+    if (value > 0) {
+        return 1;
+    }
+    return 0;
+}
+
+static bool IsEnemyAt(const Game *game, int x, int y)
+{
+    for (int i = 0; i < MAX_ENEMIES; i++) {
+        const Enemy *enemy = &game->enemies[i];
+        if (enemy->active && GameRound(enemy->position.x) == x && GameRound(enemy->position.y) == y) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static void TryMovePlayer(Game *game, int dx, int dy)
+{
+    const int nextX = GameClampInt(GameRound(game->player.position.x) + dx, 1, MAP_WIDTH - 2);
+    const int nextY = GameClampInt(GameRound(game->player.position.y) + dy, 1, MAP_HEIGHT - 2);
+
+    if (!GameMapIsBlocked(nextX, nextY)) {
+        game->player.position.x = (float)nextX;
+        game->player.position.y = (float)nextY;
+    }
+}
+
+void PlayerUpdate(Game *game, const InputState *input, float dt)
+{
+    int dx = 0;
+    int dy = 0;
+
+    if (game->player.moveCooldown > 0.0f) {
+        game->player.moveCooldown -= dt;
+    }
+    if (game->player.invulnerableTimer > 0.0f) {
+        game->player.invulnerableTimer -= dt;
+        if (game->player.invulnerableTimer < 0.0f) {
+            game->player.invulnerableTimer = 0.0f;
+        }
+    }
+
+    if (input->left) {
+        dx--;
+    }
+    if (input->right) {
+        dx++;
+    }
+    if (input->up) {
+        dy--;
+    }
+    if (input->down) {
+        dy++;
+    }
+
+    if ((dx != 0 || dy != 0) && game->player.moveCooldown <= 0.0f) {
+        TryMovePlayer(game, dx, dy);
+        game->player.moveCooldown = 0.105f;
+    }
+}
+
+void EnemiesSpawnWave(Game *game)
+{
+    int slot = -1;
+    int side;
+    int x;
+    int y;
+    EnemyType type = ENEMY_ONE_HP;
+
+    for (int i = 0; i < MAX_ENEMIES; i++) {
+        if (!game->enemies[i].active) {
+            slot = i;
+            break;
+        }
+    }
+
+    if (slot < 0) {
+        return;
+    }
+
+    if (game->elapsed > 90.0f && rand() % 100 < 8) {
+        type = ENEMY_FORTY_HP;
+    } else if (game->elapsed > 25.0f && rand() % 100 < 38) {
+        type = ENEMY_THREE_HP;
+    }
+
+    side = rand() % 4;
+    if (side == 0) {
+        x = 1 + rand() % (MAP_WIDTH - 2);
+        y = 1;
+    } else if (side == 1) {
+        x = 1 + rand() % (MAP_WIDTH - 2);
+        y = MAP_HEIGHT - 2;
+    } else if (side == 2) {
+        x = 1;
+        y = 1 + rand() % (MAP_HEIGHT - 2);
+    } else {
+        x = MAP_WIDTH - 2;
+        y = 1 + rand() % (MAP_HEIGHT - 2);
+    }
+
+    while (GameMapIsBlocked(x, y)) {
+        x = 1 + rand() % (MAP_WIDTH - 2);
+        y = 1 + rand() % (MAP_HEIGHT - 2);
+    }
+
+    if (type == ENEMY_ONE_HP) {
+        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 1, 1, 1, 2, 10, 0.0f, 0.42f, 'b'};
+    } else if (type == ENEMY_THREE_HP) {
+        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 3, 3, 2, 5, 30, 0.0f, 0.55f, 'G'};
+    } else {
+        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 40, 40, 5, 45, 400, 0.0f, 0.82f, 'V'};
+    }
+}
+
+void EnemiesUpdate(Game *game, float dt)
+{
+    const int playerX = GameRound(game->player.position.x);
+    const int playerY = GameRound(game->player.position.y);
+
+    for (int i = 0; i < MAX_ENEMIES; i++) {
+        Enemy *enemy = &game->enemies[i];
+        int enemyX;
+        int enemyY;
+        int dx;
+        int dy;
+        int stepX;
+        int stepY;
+        int nextX;
+        int nextY;
+
+        if (!enemy->active) {
+            continue;
+        }
+
+        enemyX = GameRound(enemy->position.x);
+        enemyY = GameRound(enemy->position.y);
+
+        if (abs(enemyX - playerX) <= 1 && abs(enemyY - playerY) <= 1) {
+            if (game->player.invulnerableTimer <= 0.0f) {
+                game->player.health -= enemy->damage;
+                game->player.invulnerableTimer = 0.85f;
+                GameRequestSound(game, SOUND_HIT);
+            }
+            continue;
+        }
+
+        enemy->moveCooldown -= dt;
+        if (enemy->moveCooldown > 0.0f) {
+            continue;
+        }
+
+        dx = playerX - enemyX;
+        dy = playerY - enemyY;
+        stepX = SignInt(dx);
+        stepY = SignInt(dy);
+        nextX = enemyX;
+        nextY = enemyY;
+
+        if (abs(dx) >= abs(dy)) {
+            nextX += stepX;
+        } else {
+            nextY += stepY;
+        }
+
+        if (GameMapIsBlocked(nextX, nextY) || IsEnemyAt(game, nextX, nextY)) {
+            nextX = enemyX + stepX;
+            nextY = enemyY + stepY;
+        }
+
+        if (!GameMapIsBlocked(nextX, nextY) && !IsEnemyAt(game, nextX, nextY)) {
+            enemy->position.x = (float)nextX;
+            enemy->position.y = (float)nextY;
+        }
+
+        enemy->moveCooldown = enemy->moveDelay;
+    }
+}
+
+void EnemiesDamageInRadius(Game *game, Vec2 center, int radius, int damage)
+{
+    const float radiusSquared = (float)(radius * radius);
+
+    for (int i = 0; i < MAX_ENEMIES; i++) {
+        Enemy *enemy = &game->enemies[i];
+        if (!enemy->active) {
+            continue;
+        }
+
+        if (GameDistanceSquared(enemy->position, center) <= radiusSquared) {
+            enemy->health -= damage;
+            if (enemy->health <= 0) {
+                PickupSpawn(game, enemy->position, enemy->xpValue);
+                game->player.score += enemy->scoreValue;
+                game->player.kills++;
+                enemy->active = false;
+            }
+        }
+    }
+}
+
+void PickupSpawn(Game *game, Vec2 position, int value)
+{
+    for (int i = 0; i < MAX_PICKUPS; i++) {
+        Pickup *pickup = &game->pickups[i];
+        if (pickup->active) {
+            continue;
+        }
+
+        pickup->active = true;
+        pickup->position = position;
+        pickup->value = value;
+        pickup->moveCooldown = 0.0f;
+        return;
+    }
+}
+
+void PickupsUpdate(Game *game, float dt)
+{
+    const float collectDistance = 0.8f;
+    const float magnetDistance = (float)game->player.magnetRange;
+
+    for (int i = 0; i < MAX_PICKUPS; i++) {
+        Pickup *pickup = &game->pickups[i];
+        float distanceSquared;
+
+        if (!pickup->active) {
+            continue;
+        }
+
+        distanceSquared = GameDistanceSquared(pickup->position, game->player.position);
+        if (distanceSquared <= collectDistance * collectDistance) {
+            game->player.xp += pickup->value;
+            game->player.score += pickup->value;
+            pickup->active = false;
+            GameRequestSound(game, SOUND_XP);
+            continue;
+        }
+
+        pickup->moveCooldown -= dt;
+        if (distanceSquared <= magnetDistance * magnetDistance && pickup->moveCooldown <= 0.0f) {
+            const int pickupX = GameRound(pickup->position.x);
+            const int pickupY = GameRound(pickup->position.y);
+            const int playerX = GameRound(game->player.position.x);
+            const int playerY = GameRound(game->player.position.y);
+            const int nextX = pickupX + SignInt(playerX - pickupX);
+            const int nextY = pickupY + SignInt(playerY - pickupY);
+
+            if (!GameMapIsBlocked(nextX, nextY)) {
+                pickup->position.x = (float)nextX;
+                pickup->position.y = (float)nextY;
+            }
+            pickup->moveCooldown = 0.07f;
+        }
+    }
+}
