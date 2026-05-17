@@ -54,6 +54,11 @@ static void BeginFrame(void)
     printf("\033[H");
 }
 
+static void BeginCleanFrame(void)
+{
+    printf("\033[H\033[2J");
+}
+
 static void EndFrame(void)
 {
     printf("\033[0m\033[J");
@@ -174,7 +179,7 @@ static void DrawGridLine(const Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH], int y, 
 
 void UiDrawTitle(void)
 {
-    BeginFrame();
+    BeginCleanFrame();
     printf("\033[1;36m");
     printf("======================================================================\n");
     printf("                    TERMINAL SURVIVORS: CRYPT MVP                    \n");
@@ -198,7 +203,7 @@ void UiDrawTitle(void)
 
 void UiDrawSetup(GameDifficulty selectedDifficulty)
 {
-    BeginFrame();
+    BeginCleanFrame();
     printf("\033[1;36m============================== SETUP ================================\033[0m\n\n");
     printf("Choose difficulty before starting the run.\n\n");
     printf("%s[1] Easy\033[0m  HP 14, slower waves, late vampires\n",
@@ -212,7 +217,7 @@ void UiDrawSetup(GameDifficulty selectedDifficulty)
 
 void UiDrawRanking(const RankingEntry entries[MAX_RANKINGS], int count)
 {
-    BeginFrame();
+    BeginCleanFrame();
     printf("\033[1;33m============================== RANKING ==============================\033[0m\n\n");
 
     if (count == 0) {
