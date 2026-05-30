@@ -1,2 +1,8 @@
 build/
 scores.txt
+Agents.md
+.vs/
+*.user
+*.suo
+*.wsuo
+.DS_Store

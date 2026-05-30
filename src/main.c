@@ -69,6 +69,7 @@ static int RunSmokeTest(void)
 {
     Game game;
     Game hardGame;
+    Game projectileGame;
     RankingEntry rankings[MAX_RANKINGS];
     InputState input;
     int rankingCount = 0;
@@ -96,6 +97,34 @@ static int RunSmokeTest(void)
         }
         if (activeProjectiles < 3) {
             fprintf(stderr, "smoke failed: weapon projectiles did not spawn\n");
+            return 1;
+        }
+    }
+
+    GameInit(&projectileGame, DIFFICULTY_EASY);
+    {
+        const int wallX = projectileGame.mapWidth * 28 / 100;
+        const int wallY = projectileGame.mapHeight * 32 / 100 + 1;
+
+        if (!GameMapIsBlocked(&projectileGame, wallX, wallY) ||
+            GameMapIsBlocked(&projectileGame, wallX - 1, wallY) ||
+            GameMapIsBlocked(&projectileGame, wallX + 2, wallY)) {
+            fprintf(stderr, "smoke failed: projectile wall test map setup is invalid\n");
+            return 1;
+        }
+
+        projectileGame.projectiles[0] = (Projectile){
+            true,
+            {(float)(wallX - 1), (float)wallY},
+            {32.0f, 0.0f},
+            1,
+            1.0f,
+            1,
+            '*'
+        };
+        ProjectilesUpdate(&projectileGame, 0.10f);
+        if (projectileGame.projectiles[0].active) {
+            fprintf(stderr, "smoke failed: projectile crossed a wall\n");
             return 1;
         }
     }

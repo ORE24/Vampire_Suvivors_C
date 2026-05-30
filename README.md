@@ -2,8 +2,8 @@
 
 터미널 환경에서 실행되는 뱀파이어 서바이벌 스타일 C언어 MVP입니다. `raylib`, `SDL`, `ncurses` 같은 외부 그래픽 라이브러리를 쓰지 않고 ANSI escape sequence와 터미널 bell 소리만 사용합니다.
 
-macOS와 Windows를 모두 지원하도록 터미널 입출력 코드를 플랫폼별로 분리했습니다.
-게임 맵은 `96 x 30` 타일로 고정되어 있어 터미널 창 크기, OS, 디스플레이 크기가 달라도 같은 좌표와 규칙으로 진행됩니다.
+현재 지원 대상은 Windows와 Visual Studio 2022입니다.
+게임 맵은 `96 x 30` 타일로 고정되어 있어 터미널 창 크기와 디스플레이 크기가 달라도 같은 좌표와 규칙으로 진행됩니다.
 
 ## 협업자 시작점
 
@@ -11,29 +11,11 @@ macOS와 Windows를 모두 지원하도록 터미널 입출력 코드를 플랫�
 
 ## 빠른 실행
 
-macOS:
-
-```sh
-make
-make run
-```
-
-Windows:
-
 1. Visual Studio 2022를 설치할 때 `Desktop development with C++` 워크로드를 포함합니다.
 2. `VampireSurvivorsC.sln`을 Visual Studio에서 엽니다.
 3. 상단 구성을 `x64` / `Debug` 또는 `Release`로 두고 `F5`를 눌러 실행합니다.
 
 Visual Studio 빌드 결과는 `build\Debug-x64\vampire-survivors-c.exe` 또는 `build\Release-x64\vampire-survivors-c.exe`에 생성됩니다.
-
-MinGW-w64 `gcc`를 쓰는 대체 경로:
-
-```bat
-build-windows.bat
-build\vampire-survivors-c.exe
-```
-
-MSYS2/Git Bash 환경에서는 Windows에서도 `make`, `make run`을 사용할 수 있습니다.
 
 ## 조작법
 

@@ -4,11 +4,9 @@
 
 ```txt
 .
-├── Makefile
 ├── VampireSurvivorsC.sln
 ├── VampireSurvivorsC.vcxproj
 ├── VampireSurvivorsC.vcxproj.filters
-├── build-windows.bat
 ├── README.md
 ├── assets/
 ├── docs/
@@ -25,11 +23,9 @@
 
 ## 루트 파일
 
-- `Makefile`: macOS 또는 MSYS2/Git Bash 환경에서 빌드와 실행을 담당한다.
 - `VampireSurvivorsC.sln`: Windows에서 Visual Studio 2022로 열어 실행하는 솔루션 파일이다.
 - `VampireSurvivorsC.vcxproj`: MSVC가 C 소스 파일을 컴파일하고 링크하는 프로젝트 설정 파일이다.
 - `VampireSurvivorsC.vcxproj.filters`: Visual Studio 솔루션 탐색기에서 소스와 헤더를 분류하는 표시용 파일이다.
-- `build-windows.bat`: Windows에서 MinGW-w64 `gcc`로 실행 파일을 만드는 배치 파일이다.
 - `README.md`: 프로젝트 소개, 실행 방법, 주요 문서 링크를 제공한다.
 - `assets/`: 이후 이미지, 사운드, 맵 데이터 같은 리소스를 넣을 수 있는 폴더다.
 - `docs/`: 작업 현황판, 회의록, 협업 규칙, 코드 구조, 마일스톤 등 프로젝트 문서를 보관한다.
@@ -102,15 +98,13 @@
 
 ### `src/platform.h`, `src/platform.c`
 
-macOS와 Windows의 터미널 처리 차이를 감추는 플랫폼 호환 레이어다.
+Windows 터미널 처리를 담당하는 레이어다.
 
-- macOS: `termios`, `select`, `nanosleep`
-- Windows: `conio.h`, Windows Console API
-- 공통 기능:
-  - 터미널 모드 진입과 복구
-  - 비차단 키 입력
-  - 시간 측정
-  - 프레임 대기
+- `conio.h`와 Windows Console API를 사용한다.
+- 터미널 모드 진입과 복구
+- 비차단 키 입력
+- 시간 측정
+- 프레임 대기
 
 ## 주요 데이터 흐름
 
@@ -130,8 +124,6 @@ main.c
 
 ## 빌드 결과물
 
-- macOS: `build/vampire-survivors-c`
 - Windows Visual Studio: `build/Debug-x64/vampire-survivors-c.exe` 또는 `build/Release-x64/vampire-survivors-c.exe`
-- Windows MinGW-w64: `build/vampire-survivors-c.exe`
 
 `build/` 폴더는 Git에 올리지 않는다.
