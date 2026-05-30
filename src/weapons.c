@@ -52,6 +52,32 @@ static void SpawnProjectile(Game *game, const Weapon *weapon, Vec2 direction, fl
     }
 }
 
+static bool ProjectilePathHitsWall(const Game *game, Vec2 from, Vec2 to)
+{
+    const float dx = to.x - from.x;
+    const float dy = to.y - from.y;
+    const float distanceX = fabsf(dx);
+    const float distanceY = fabsf(dy);
+    const float maxDistance = distanceX > distanceY ? distanceX : distanceY;
+    int steps = (int)ceilf(maxDistance * 4.0f);
+
+    if (steps < 1) {
+        steps = 1;
+    }
+
+    for (int step = 1; step <= steps; step++) {
+        const float t = (float)step / (float)steps;
+        const int x = GameRound(from.x + dx * t);
+        const int y = GameRound(from.y + dy * t);
+
+        if (GameMapIsBlocked(game, x, y)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static void FireMagicBolt(Game *game, Weapon *weapon)
 {
     const int targetIndex = FindNearestEnemy(game, weapon->range);
@@ -149,20 +175,22 @@ void ProjectilesUpdate(Game *game, float dt)
 {
     for (int i = 0; i < MAX_PROJECTILES; i++) {
         Projectile *projectile = &game->projectiles[i];
-        int x;
-        int y;
 
         if (!projectile->active) {
             continue;
         }
 
-        projectile->position = GameAdd(projectile->position, GameScale(projectile->velocity, dt));
-        projectile->lifetime -= dt;
-        x = GameRound(projectile->position.x);
-        y = GameRound(projectile->position.y);
+        {
+            const Vec2 previousPosition = projectile->position;
+            const Vec2 nextPosition = GameAdd(projectile->position, GameScale(projectile->velocity, dt));
 
-        if (projectile->lifetime <= 0.0f || GameMapIsBlocked(game, x, y)) {
-            projectile->active = false;
+            projectile->position = nextPosition;
+            projectile->lifetime -= dt;
+
+            if (projectile->lifetime <= 0.0f ||
+                ProjectilePathHitsWall(game, previousPosition, nextPosition)) {
+                projectile->active = false;
+            }
         }
     }
 }

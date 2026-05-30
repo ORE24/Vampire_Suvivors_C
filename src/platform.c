@@ -3,7 +3,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifdef _WIN32
+#if !defined(_WIN32)
+#error "This project supports Windows only. Build it with Visual Studio 2022 on Windows."
+#elif !defined(_MSC_VER) || defined(__clang__)
+#error "This project supports the MSVC compiler from Visual Studio 2022 only."
+#else
 
 #include <conio.h>
 #include <windows.h>
@@ -162,113 +166,6 @@ void PlatformGetTerminalSize(int *columns, int *rows)
         }
         if (rows != NULL) {
             *rows = info.srWindow.Bottom - info.srWindow.Top + 1;
-        }
-    }
-}
-
-#else
-
-#include <sys/select.h>
-#include <sys/time.h>
-#include <sys/ioctl.h>
-#include <termios.h>
-#include <time.h>
-#include <unistd.h>
-
-static struct termios originalTermios;
-static bool terminalReady = false;
-
-void PlatformEnterTerminal(void)
-{
-    struct termios raw;
-
-    if (tcgetattr(STDIN_FILENO, &originalTermios) != 0) {
-        fprintf(stderr, "Failed to read terminal settings.\n");
-        exit(1);
-    }
-
-    raw = originalTermios;
-    raw.c_lflag &= (tcflag_t)~(ECHO | ICANON);
-    raw.c_cc[VMIN] = 0;
-    raw.c_cc[VTIME] = 0;
-
-    if (tcsetattr(STDIN_FILENO, TCSANOW, &raw) != 0) {
-        fprintf(stderr, "Failed to enter raw terminal mode.\n");
-        exit(1);
-    }
-
-    terminalReady = true;
-    atexit(PlatformExitTerminal);
-    printf("\033[?1049h\033[?25l\033[2J\033[H");
-    fflush(stdout);
-}
-
-void PlatformExitTerminal(void)
-{
-    if (!terminalReady) {
-        return;
-    }
-
-    printf("\033[0m\033[2J\033[H\033[?25h\033[?1049l");
-    fflush(stdout);
-    tcsetattr(STDIN_FILENO, TCSANOW, &originalTermios);
-    terminalReady = false;
-}
-
-double PlatformNowSeconds(void)
-{
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return (double)tv.tv_sec + (double)tv.tv_usec / 1000000.0;
-}
-
-void PlatformSleepFrame(double seconds)
-{
-    struct timespec ts;
-
-    if (seconds <= 0.0) {
-        return;
-    }
-
-    ts.tv_sec = (time_t)seconds;
-    ts.tv_nsec = (long)((seconds - (double)ts.tv_sec) * 1000000000.0);
-    nanosleep(&ts, NULL);
-}
-
-bool PlatformReadByte(char *out)
-{
-    fd_set set;
-    struct timeval timeout;
-
-    FD_ZERO(&set);
-    FD_SET(STDIN_FILENO, &set);
-    timeout.tv_sec = 0;
-    timeout.tv_usec = 0;
-
-    if (select(STDIN_FILENO + 1, &set, NULL, NULL, &timeout) <= 0) {
-        return false;
-    }
-
-    return read(STDIN_FILENO, out, 1) == 1;
-}
-
-void PlatformGetTerminalSize(int *columns, int *rows)
-{
-    struct winsize size;
-
-    if (columns != NULL) {
-        *columns = 100;
-    }
-    if (rows != NULL) {
-        *rows = 36;
-    }
-
-    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &size) == 0) {
-        if (columns != NULL && size.ws_col > 0) {
-            *columns = size.ws_col;
-        }
-        if (rows != NULL && size.ws_row > 0) {
-            *rows = size.ws_row;
         }
     }
 }

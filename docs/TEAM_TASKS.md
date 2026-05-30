@@ -14,7 +14,7 @@
 
 | 구분 | 완료 내용 |
 | --- | --- |
-| 실행 환경 | macOS `make`, Windows `build-windows.bat` 빌드 경로 준비 |
+| 실행 환경 | Windows Visual Studio 2022 솔루션 실행 경로 준비 |
 | 화면 | 초기 화면, 설정 화면, 게임 화면, 랭킹 화면 구현 |
 | 난이도 | `Easy`, `Hard` 선택과 난이도별 HP, 스폰 속도, 강한 적 등장 시점 차등 적용 |
 | 맵 | `96 x 30` 고정 맵, 벽과 장애물, 터미널 크기와 무관한 좌표 유지 |
@@ -25,25 +25,25 @@
 | 성장 | 경험치 드롭, 경험치 흡수, 레벨업 선택지 구현 |
 | 결과 | HP 0 게임오버, 10분 생존 승리, 랭킹 저장 구현 |
 | UI/UX | HP 빨간색 바, XP 초록색 바, 색상 기반 엔티티 표시 |
-| 검증 | `make`, `./build/vampire-survivors-c --smoke-test` 확인 흐름 준비 |
+| 검증 | Visual Studio 빌드와 `build\Debug-x64\vampire-survivors-c.exe --smoke-test` 확인 흐름 준비 |
 
 ## 다음 작업
 
 | 우선순위 | 담당 | 상태 | 작업 | 완료 기준 |
 | --- | --- | --- | --- | --- |
-| P0 | `JAE` | 예정 | 최신 `JAE` 변경을 Pull Request로 `main`에 통합 준비 | PR 설명에 변경 요약, 테스트 결과, 남은 위험을 적고 `make`, 스모크 테스트 통과 |
+| P0 | `JAE` | 예정 | 최신 `JAE` 변경을 Pull Request로 `main`에 통합 준비 | PR 설명에 변경 요약, 테스트 결과, 남은 위험을 적고 Visual Studio 빌드와 스모크 테스트 통과 |
 | P0 | `TAE` | 완료 | 움직이는 요소 조작과 전체 난이도 밸런스 적용 | 플레이어 이동, 적 이동, 적 행동, 스폰 흐름, 난이도별 HP/스폰/등장 시점이 자연스럽게 동작 |
 | P0 | `JONG` | 완료 | 무기 4종 MVP 확장과 게임 규칙 반영 | 기존 2종 포함 총 4종 자동 공격이 동작하고 레벨업 강화와 게임 규칙 문서에 연결됨 |
 | P1 | `TAE` | 완료 | 적 3종 행동 차별화와 밸런스 조정 | HP 차이 외에 속도, 데미지, 이동 쿨다운, 점수 중 2개 이상이 적마다 다름 |
 | P1 | `JONG` | 예정 | UI/UX, 무기, 게임 규칙 개선 | 레벨업, 일시정지, 게임오버 화면이 명확하고 무기/규칙 변경이 문서에 반영됨 |
-| P1 | `JAE` | 예정 | 통합 테스트와 발표 안정성 점검 | macOS 전체화면에서 3분 이상 플레이, Windows Terminal 실행 결과 문서화 |
+| P1 | `JAE` | 예정 | 통합 테스트와 발표 안정성 점검 | Windows Terminal 또는 PowerShell에서 3분 이상 플레이하고 실행 결과 문서화 |
 | P2 | 전원 | 예정 | 발표용 설명 자료 정리 | 게임 규칙, 코드 구조, 각자 담당 기능을 1분 안에 설명할 수 있게 문서화 |
 
 ## 담당 기준
 
 | 담당 | 책임 영역 | 주로 볼 파일 |
 | --- | --- | --- |
-| `JAE` | 구조 최적화, 통합 관리, 플랫폼 호환성, PR 검증, 테스트 관리 | `src/game.c`, `src/game.h`, `src/platform.c`, 문서 전체 |
+| `JAE` | 구조 최적화, 통합 관리, Windows 실행 안정성, PR 검증, 테스트 관리 | `src/game.c`, `src/game.h`, `src/platform.c`, 문서 전체 |
 | `TAE` | 움직이는 요소 조작, 플레이어/적 이동, 전체 난이도 밸런스 | `src/entities.c`, `src/game.c`, `docs/GAME_RULES.md` |
 | `JONG` | UI/UX, 무기, 게임 규칙 정리 | `src/weapons.c`, `src/ui.c`, `docs/GAME_RULES.md` |
 
@@ -52,9 +52,9 @@
 1. 자기 브랜치로 이동한다.
 2. 최신 기준을 받는다.
 3. 이 문서에서 자기 담당 작업을 확인한다.
-4. 작업 전 `make`를 실행한다.
+4. 작업 전 Visual Studio 2022에서 `VampireSurvivorsC.sln`을 열고 빌드한다.
 5. 기능을 작게 구현하고 한글 커밋 메시지로 커밋한다.
-6. 작업 후 `make`와 `./build/vampire-survivors-c --smoke-test`를 실행한다.
+6. 작업 후 Visual Studio 빌드와 `build\Debug-x64\vampire-survivors-c.exe --smoke-test`를 실행한다.
 7. GitHub에 자기 브랜치를 push하고 Pull Request를 만든다.
 
 ## Pull Request에 꼭 적을 내용
