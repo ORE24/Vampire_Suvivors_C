@@ -20,6 +20,14 @@ make run
 
 Windows:
 
+1. Visual Studio 2022를 설치할 때 `Desktop development with C++` 워크로드를 포함합니다.
+2. `VampireSurvivorsC.sln`을 Visual Studio에서 엽니다.
+3. 상단 구성을 `x64` / `Debug` 또는 `Release`로 두고 `F5`를 눌러 실행합니다.
+
+Visual Studio 빌드 결과는 `build\Debug-x64\vampire-survivors-c.exe` 또는 `build\Release-x64\vampire-survivors-c.exe`에 생성됩니다.
+
+MinGW-w64 `gcc`를 쓰는 대체 경로:
+
 ```bat
 build-windows.bat
 build\vampire-survivors-c.exe

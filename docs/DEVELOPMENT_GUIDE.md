@@ -11,12 +11,29 @@ make run
 
 Windows:
 
+Visual Studio 2022에서 실행하려면 설치 시 `Desktop development with C++` 워크로드를 포함한다.
+
+```txt
+VampireSurvivorsC.sln 열기
+x64 Debug 또는 x64 Release 선택
+F5 실행
+```
+
+Visual Studio 빌드 결과:
+
+```bat
+build\Debug-x64\vampire-survivors-c.exe
+build\Release-x64\vampire-survivors-c.exe
+```
+
+MinGW-w64 `gcc`를 사용하는 대체 빌드:
+
 ```bat
 build-windows.bat
 build\vampire-survivors-c.exe
 ```
 
-Windows에서는 MinGW-w64의 `gcc`가 필요하다. Windows Terminal 또는 PowerShell 사용을 권장한다.
+Windows Terminal 또는 PowerShell 사용을 권장한다.
 
 ## 작업 전 체크리스트
 
@@ -60,10 +77,11 @@ make
 ./build/vampire-survivors-c --smoke-test
 ```
 
-4. Windows에서는 아래 실행 파일로 게임을 직접 켜서 확인한다.
+4. Windows에서는 Visual Studio에서 `VampireSurvivorsC.sln`을 열고 `x64 Debug` 또는 `x64 Release`로 빌드한 뒤 게임을 직접 켜서 확인한다.
 
 ```bat
-build\vampire-survivors-c.exe
+build\Debug-x64\vampire-survivors-c.exe
+build\Release-x64\vampire-survivors-c.exe
 ```
 
 5. 게임 규칙, 조작법, 담당 작업이 바뀌었다면 문서를 같이 수정한다.

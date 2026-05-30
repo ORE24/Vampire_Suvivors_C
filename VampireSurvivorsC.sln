@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "VampireSurvivorsC", "VampireSurvivorsC.vcxproj", "{7A7F58B1-4E5D-44C7-B56D-3A7F7B9B5C21}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7A7F58B1-4E5D-44C7-B56D-3A7F7B9B5C21}.Debug|x64.ActiveCfg = Debug|x64
+		{7A7F58B1-4E5D-44C7-B56D-3A7F7B9B5C21}.Debug|x64.Build.0 = Debug|x64
+		{7A7F58B1-4E5D-44C7-B56D-3A7F7B9B5C21}.Release|x64.ActiveCfg = Release|x64
+		{7A7F58B1-4E5D-44C7-B56D-3A7F7B9B5C21}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D3BF52B4-E15C-4E06-9A51-49C77E7CC7FD}
+	EndGlobalSection
+EndGlobal

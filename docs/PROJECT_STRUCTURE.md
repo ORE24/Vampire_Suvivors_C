@@ -5,6 +5,9 @@
 ```txt
 .
 ├── Makefile
+├── VampireSurvivorsC.sln
+├── VampireSurvivorsC.vcxproj
+├── VampireSurvivorsC.vcxproj.filters
 ├── build-windows.bat
 ├── README.md
 ├── assets/
@@ -23,6 +26,9 @@
 ## 루트 파일
 
 - `Makefile`: macOS 또는 MSYS2/Git Bash 환경에서 빌드와 실행을 담당한다.
+- `VampireSurvivorsC.sln`: Windows에서 Visual Studio 2022로 열어 실행하는 솔루션 파일이다.
+- `VampireSurvivorsC.vcxproj`: MSVC가 C 소스 파일을 컴파일하고 링크하는 프로젝트 설정 파일이다.
+- `VampireSurvivorsC.vcxproj.filters`: Visual Studio 솔루션 탐색기에서 소스와 헤더를 분류하는 표시용 파일이다.
 - `build-windows.bat`: Windows에서 MinGW-w64 `gcc`로 실행 파일을 만드는 배치 파일이다.
 - `README.md`: 프로젝트 소개, 실행 방법, 주요 문서 링크를 제공한다.
 - `assets/`: 이후 이미지, 사운드, 맵 데이터 같은 리소스를 넣을 수 있는 폴더다.
@@ -125,6 +131,7 @@ main.c
 ## 빌드 결과물
 
 - macOS: `build/vampire-survivors-c`
-- Windows: `build/vampire-survivors-c.exe`
+- Windows Visual Studio: `build/Debug-x64/vampire-survivors-c.exe` 또는 `build/Release-x64/vampire-survivors-c.exe`
+- Windows MinGW-w64: `build/vampire-survivors-c.exe`
 
 `build/` 폴더는 Git에 올리지 않는다.
