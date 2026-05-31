@@ -49,14 +49,24 @@ static const char *ColorCode(CellColor color)
     return "\033[0m";
 }
 
+/* 게임 화면용: 커서 숨기고 맨 위로 이동 (깜빡임 최소화) */
 static void BeginFrame(void)
 {
-    printf("\033[H");
+    printf("\033[?25l");   /* 커서 숨기기 → 위아래 흔들림 방지 */
+    printf("\033[H");      /* 커서를 맨 위로 */
+}
+
+/* 메뉴/랭킹용: 전체 화면 완전히 지운 뒤 그리기 (이전 화면 잔상 제거) */
+static void BeginFrameFull(void)
+{
+    printf("\033[?25l");
+    printf("\033[2J\033[H");  /* 화면 전체 지우기 + 맨 위로 */
 }
 
 static void EndFrame(void)
 {
-    printf("\033[0m\033[J");
+    printf("\033[0m\033[J");  /* 남은 내용 지우기 */
+    printf("\033[?25h");      /* 커서 다시 보이기 */
     fflush(stdout);
 }
 
@@ -181,7 +191,7 @@ static void DrawGridLine(const Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH], int y, 
 
 void UiDrawTitle(void)
 {
-    BeginFrame();
+    BeginFrameFull();
     printf("\033[1;36m");
     printf("======================================================================\n");
     printf("                    TERMINAL SURVIVORS: CRYPT MVP                    \n");
@@ -205,7 +215,7 @@ void UiDrawTitle(void)
 
 void UiDrawSetup(GameDifficulty selectedDifficulty)
 {
-    BeginFrame();
+    BeginFrameFull();
     printf("\033[1;36m============================== SETUP ================================\033[0m\n\n");
     printf("Choose difficulty before starting the run.\n\n");
     printf("%s[1] Easy\033[0m  HP 14, slower waves, late vampires\n",
@@ -219,7 +229,7 @@ void UiDrawSetup(GameDifficulty selectedDifficulty)
 
 void UiDrawRanking(const RankingEntry entries[MAX_RANKINGS], int count)
 {
-    BeginFrame();
+    BeginFrameFull();
     printf("\033[1;33m============================== RANKING ==============================\033[0m\n\n");
 
     if (count == 0) {
@@ -251,7 +261,7 @@ void UiDrawNameInput(const Game *game, const char *name, int nameLen)
         ? "\033[1;32mVICTORY\033[0m"
         : "\033[1;31mGAME OVER\033[0m";
 
-    BeginFrame();
+    BeginFrameFull();
     printf("\033[1;33m============================== RANKING ==============================\033[0m\n\n");
     printf("%s\n\n", resultLabel);
     printf("  Score : %d\n", game->player.score + seconds);
