@@ -11,8 +11,7 @@ static void ReadInput(InputState *input)
 {
     char ch;
 
-	memset(input, 0, sizeof(*input)); //InputState ����ü�� ��� ����� 0���� �ʱ�ȭ
-    // input->number = 0; <- **�ʿ����. ����� �� �ּ� ó��.**
+    memset(input, 0, sizeof(*input));
 
 	while (PlatformReadByte(&ch)) { // ch�� Ű���忡�� �Էµ� ���� ����, �Է��� ������ false ��ȯ�Ͽ� ���� ����
         if (ch == '\033') { /* ESC: 화살표 또는 Esc 처리 */
@@ -311,7 +310,7 @@ int main(int argc, char **argv)
             UiDrawNameInput(&game, playerName, playerNameLen);
         }
 
-		PlatformSleepFrame(1.0 / 24.0); // �ʴ� 24 ���������� ���� ���� ����
+        PlatformSleepFrame(1.0 / 24.0);
     }
 
     PlatformExitTerminal();
