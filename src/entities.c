@@ -3,7 +3,7 @@
 #include <math.h>
 #include <stdlib.h>
 
-static int SignInt(int value)
+static int SignInt(int value) //플레이어의 위치에 비례하여 적의 이동방향 결정
 {
     if (value < 0) {
         return -1;
@@ -14,10 +14,10 @@ static int SignInt(int value)
     return 0;
 }
 
-static bool IsEnemyAt(const Game *game, int x, int y)
+static bool IsEnemyAt(const Game *game, int x, int y) //특정 좌표에 적이 있는지 확인, struct는 game.h에서 정의됨.
 {
-    for (int i = 0; i < MAX_ENEMIES; i++) {
-        const Enemy *enemy = &game->enemies[i];
+    for (int i = 0; i < MAX_ENEMIES; i++) {           //max enemy = 96
+        const Enemy *enemy = &game->enemies[i];       // 적 한 마리의 데이터를 가르키는 읽기전용 포인터
         if (enemy->active && GameRound(enemy->position.x) == x && GameRound(enemy->position.y) == y) {
             return true;
         }

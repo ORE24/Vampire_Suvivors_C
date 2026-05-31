@@ -97,12 +97,12 @@ void PlatformExitTerminal(void)
 
 double PlatformNowSeconds(void)
 {
-    LARGE_INTEGER frequency;
+    LARGE_INTEGER frequency; //LARGE_INTEGER = windows 미리 만들어놓은 구조체 
     LARGE_INTEGER counter;
 
-    QueryPerformanceFrequency(&frequency);
-    QueryPerformanceCounter(&counter);
-    return (double)counter.QuadPart / (double)frequency.QuadPart;
+    QueryPerformanceFrequency(&frequency); //1초당 카운트 횟수
+    QueryPerformanceCounter(&counter); //현재 카운트 값
+	return (double)counter.QuadPart / (double)frequency.QuadPart; // 현재 몇 초가 지났는지 계산해서 반환
 }
 
 void PlatformSleepFrame(double seconds)

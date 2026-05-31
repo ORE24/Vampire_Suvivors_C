@@ -11,18 +11,18 @@ static void ReadInput(InputState *input)
 {
     char ch;
 
-    memset(input, 0, sizeof(*input));
-    input->number = 0;
+	memset(input, 0, sizeof(*input)); //InputState 구조체의 모든 멤버를 0으로 초기화
+    // input->number = 0; <- **필요없음. 지우기 전 주석 처리.**
 
-    while (PlatformReadByte(&ch)) {
-        if (ch == '\033') {
+	while (PlatformReadByte(&ch)) { // ch에 키보드에서 입력된 문자 저장, 입력이 없으면 false 반환하여 루프 종료
+		if (ch == '\033') { //ESC 키가 입력되면 방향키 입력으로 처리
             char next;
             char code;
 
             input->back = true;
             if (PlatformReadByte(&next) && next == '[' && PlatformReadByte(&code)) {
                 input->back = false;
-                if (code == 'A') {
+                if (code == 'A') { //터미널이 자동으로 \033 [ A 전송
                     input->up = true;
                 } else if (code == 'B') {
                     input->down = true;
@@ -158,7 +158,7 @@ int main(int argc, char **argv)
             game.pendingSounds = 0;
         }
 
-        PlatformSleepFrame(1.0 / 24.0);
+		PlatformSleepFrame(1.0 / 24.0); // 초당 24 프레임으로 게임 루프 실행
     }
 
     PlatformExitTerminal();

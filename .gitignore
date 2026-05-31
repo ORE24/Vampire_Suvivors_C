@@ -1,2 +1,5 @@
 build/
 scores.txt
+.vs/
+Vampire_.A0FAFEAE/
+*.vcxproj.user
