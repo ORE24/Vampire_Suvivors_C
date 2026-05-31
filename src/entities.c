@@ -3,7 +3,6 @@
 #include <math.h>
 #include <stdlib.h>
 
-static int SignInt(int value) //�÷��̾��� ��ġ�� ����Ͽ� ���� �̵����� ����
 #define ENEMY_UNREACHABLE 1000000
 
 static int SignInt(int value)
@@ -160,6 +159,40 @@ void PlayerUpdate(Game *game, const InputState *input, float dt)
         }
     }
 
+    /* ❤️ 회복의 붕대: 일정 시간마다 HP 자동 회복 */
+    if (game->player.hpRecoveryLevel > 0) {
+        static const int   amounts[4]   = {0, 2, 3, 5};
+        static const float intervals[4] = {0.0f, 30.0f, 20.0f, 15.0f};
+
+        game->player.hpRecoveryTimer -= dt;
+        if (game->player.hpRecoveryTimer <= 0.0f) {
+            game->player.health += amounts[game->player.hpRecoveryLevel];
+            if (game->player.health > game->player.maxHealth) {
+                game->player.health = game->player.maxHealth;
+            }
+            game->player.hpRecoveryTimer = intervals[game->player.hpRecoveryLevel];
+        }
+    }
+
+    /* 🛡️ 무적의 방패: 쿨타임마다 15초 자동 무적 발동 */
+    if (game->player.shieldLevel > 0) {
+        static const float cooldowns[4] = {0.0f, 120.0f, 90.0f, 60.0f};
+
+        if (game->player.shieldTimer > 0.0f) {
+            game->player.shieldTimer -= dt;
+            if (game->player.shieldTimer < 0.0f) {
+                game->player.shieldTimer = 0.0f;
+            }
+        } else {
+            game->player.shieldCooldown -= dt;
+            if (game->player.shieldCooldown <= 0.0f) {
+                game->player.shieldTimer = 15.0f;
+                game->player.shieldCooldown = cooldowns[game->player.shieldLevel];
+                game->auraPulseTimer = 0.22f;  /* 방패 발동 시각 효과 */
+            }
+        }
+    }
+
     if (input->left) {
         dx--;
     }
@@ -175,7 +208,8 @@ void PlayerUpdate(Game *game, const InputState *input, float dt)
 
     if ((dx != 0 || dy != 0) && game->player.moveCooldown <= 0.0f) {
         TryMovePlayer(game, dx, dy);
-        game->player.moveCooldown = 0.105f;
+        /* 이동속도 배율 적용: 쿨타임을 배율로 나눔 */
+        game->player.moveCooldown = 0.105f / game->player.moveSpeedMult;
     }
 }
 
@@ -254,7 +288,9 @@ void EnemiesUpdate(Game *game, float dt)
         enemyY = GameRound(enemy->position.y);
 
         if (abs(enemyX - playerX) <= 1 && abs(enemyY - playerY) <= 1) {
-            if (game->player.invulnerableTimer <= 0.0f) {
+            /* 방패 무적(shieldTimer) 또는 피격 무적(invulnerableTimer) 중이면 피해 없음 */
+            if (game->player.invulnerableTimer <= 0.0f &&
+                game->player.shieldTimer <= 0.0f) {
                 game->player.health -= enemy->damage;
                 game->player.invulnerableTimer = 0.85f;
                 GameRequestSound(game, SOUND_HIT);

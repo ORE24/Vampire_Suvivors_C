@@ -15,7 +15,7 @@ static void ReadInput(InputState *input)
     // input->number = 0; <- **�ʿ����. ����� �� �ּ� ó��.**
 
 	while (PlatformReadByte(&ch)) { // ch�� Ű���忡�� �Էµ� ���� ����, �Է��� ������ false ��ȯ�Ͽ� ���� ����
-		if (ch == '\033') { //ESC Ű�� �ԷµǸ� ����Ű �Է����� ó��
+        if (ch == '\033') { /* ESC: 화살표 또는 Esc 처리 */
             char next;
             char code;
 
@@ -23,7 +23,6 @@ static void ReadInput(InputState *input)
             input->pauseToggle = true;
             if (PlatformReadByte(&next) && next == '[' && PlatformReadByte(&code)) {
                 input->back = false;
-                if (code == 'A') { //�͹̳��� �ڵ����� \033 [ A ����
                 input->pauseToggle = false;
                 if (code == 'A') {
                     input->up = true;
@@ -36,6 +35,12 @@ static void ReadInput(InputState *input)
                 }
             }
             continue;
+        }
+
+        /* 이름 입력용 raw 문자 저장 (알파벳/숫자/-/_) */
+        if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') ||
+            (ch >= '0' && ch <= '9') || ch == '-' || ch == '_') {
+            input->typedChar = ch;
         }
 
         ch = (char)tolower((unsigned char)ch);
@@ -96,7 +101,7 @@ static int RunSmokeTest(void)
                 activeProjectiles++;
             }
         }
-        if (activeProjectiles < 3) {
+        if (activeProjectiles < 1) {
             fprintf(stderr, "smoke failed: weapon projectiles did not spawn\n");
             return 1;
         }
@@ -177,6 +182,8 @@ int main(int argc, char **argv)
     bool soundEnabled = true;
     bool scoreSaved = false;
     double previousTime;
+    char playerName[MAX_NAME_LEN + 1] = {0};
+    int playerNameLen = 0;
 
     srand((unsigned int)time(NULL));
 
@@ -255,9 +262,10 @@ int main(int argc, char **argv)
             GameUpdate(&game, &input, dt);
 
             if ((game.mode == GAME_MODE_GAME_OVER || game.mode == GAME_MODE_VICTORY) && !scoreSaved) {
-                RankingAddAndSave(&game, game.mode == GAME_MODE_VICTORY ? "WIN" : "LOSE");
-                RankingLoad(rankings, &rankingCount);
-                scoreSaved = true;
+                /* 이름 입력 화면으로 전환 */
+                memset(playerName, 0, sizeof(playerName));
+                playerNameLen = 0;
+                screen = SCREEN_NAME_INPUT;
             }
 
             if ((game.mode == GAME_MODE_GAME_OVER || game.mode == GAME_MODE_VICTORY) && input.restart) {
@@ -270,6 +278,37 @@ int main(int argc, char **argv)
             UiDrawGame(&game);
             UiPlaySounds(game.pendingSounds, soundEnabled);
             game.pendingSounds = 0;
+        } else if (screen == SCREEN_NAME_INPUT) {
+            /* 이름 입력: 문자 추가 */
+            if (input.typedChar != 0 && playerNameLen < MAX_NAME_LEN) {
+                playerName[playerNameLen++] = input.typedChar;
+                playerName[playerNameLen] = '\0';
+            }
+            /* B키로 한 글자 삭제 */
+            if (input.back && playerNameLen > 0) {
+                playerName[--playerNameLen] = '\0';
+            }
+            /* Enter → 저장 후 랭킹 화면 */
+            if (input.select) {
+                if (playerNameLen == 0) {
+                    strncpy(playerName, "NONAME", MAX_NAME_LEN);
+                    playerNameLen = 6;
+                }
+                RankingAddAndSave(&game, playerName,
+                    game.mode == GAME_MODE_VICTORY ? "WIN" : "LOSE");
+                RankingLoad(rankings, &rankingCount);
+                scoreSaved = true;
+                screen = SCREEN_RANKING;
+            }
+            /* Q/Esc → 이름 없이 저장 */
+            if (input.quit) {
+                RankingAddAndSave(&game, "NONAME",
+                    game.mode == GAME_MODE_VICTORY ? "WIN" : "LOSE");
+                RankingLoad(rankings, &rankingCount);
+                scoreSaved = true;
+                screen = SCREEN_RANKING;
+            }
+            UiDrawNameInput(&game, playerName, playerNameLen);
         }
 
 		PlatformSleepFrame(1.0 / 24.0); // �ʴ� 24 ���������� ���� ���� ����

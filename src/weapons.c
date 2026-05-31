@@ -4,6 +4,7 @@
 
 #define PI 3.14159265358979323846f
 
+/* 사거리 내 가장 가까운 적 인덱스 반환 (-1 = 없음) */
 static int FindNearestEnemy(const Game *game, int range)
 {
     int nearest = -1;
@@ -78,12 +79,29 @@ static bool ProjectilePathHitsWall(const Game *game, Vec2 from, Vec2 to)
     return false;
 }
 
-static void FireMagicBolt(Game *game, Weapon *weapon)
+/* ○ 원형: 가장 가까운 적에게 1발 조준 발사 (Dmg20, 쿨1.0s) */
+static void FireCircle(Game *game, Weapon *weapon)
+{
+    const int targetIndex = FindNearestEnemy(game, weapon->range);
+    Vec2 direction;
+
+    if (targetIndex < 0) {
+        return;
+    }
+
+    direction.x = game->enemies[targetIndex].position.x - game->player.position.x;
+    direction.y = game->enemies[targetIndex].position.y - game->player.position.y;
+    SpawnProjectile(game, weapon, direction, 13.0f, 1.8f, 1);
+    GameRequestSound(game, SOUND_ATTACK);
+}
+
+/* △ 삼각형: 가장 가까운 적 방향으로 3발 부채꼴 발사 (Dmg8 x3, 쿨0.4s) */
+static void FireTriangle(Game *game, Weapon *weapon)
 {
     const int targetIndex = FindNearestEnemy(game, weapon->range);
     Vec2 direction;
     float baseAngle;
-    float spread;
+    int i;
 
     if (targetIndex < 0) {
         return;
@@ -93,25 +111,36 @@ static void FireMagicBolt(Game *game, Weapon *weapon)
     direction.y = game->enemies[targetIndex].position.y - game->player.position.y;
     direction = GameNormalize(direction);
     baseAngle = atan2f(direction.y, direction.x);
-    spread = 0.24f;
 
-    for (int i = 0; i < weapon->projectileCount; i++) {
-        const float offset = ((float)i - ((float)weapon->projectileCount - 1.0f) * 0.5f) * spread;
-        const float angle = baseAngle + offset;
+    /* 0, -0.2rad, +0.2rad 세 방향 */
+    for (i = -1; i <= 1; i++) {
+        const float angle = baseAngle + (float)i * 0.2f;
         SpawnProjectile(game, weapon, (Vec2){cosf(angle), sinf(angle)}, 13.0f, 1.8f, 1);
     }
 
     GameRequestSound(game, SOUND_ATTACK);
 }
 
-static void PulseHolyAura(Game *game, Weapon *weapon)
+/* □ 사각형: 상하좌우 4방향 동시 발사 (Dmg15 x4, 쿨1.0s) */
+static void FireSquare(Game *game, Weapon *weapon)
 {
-    EnemiesDamageInRadius(game, game->player.position, weapon->range, weapon->damage);
-    game->auraPulseTimer = 0.22f;
+    static const Vec2 dirs[4] = {
+        { 1.0f,  0.0f},  /* 오른쪽 */
+        {-1.0f,  0.0f},  /* 왼쪽   */
+        { 0.0f,  1.0f},  /* 아래   */
+        { 0.0f, -1.0f}   /* 위     */
+    };
+    int i;
+
+    for (i = 0; i < 4; i++) {
+        SpawnProjectile(game, weapon, dirs[i], 13.0f, 1.8f, 1);
+    }
+
     GameRequestSound(game, SOUND_ATTACK);
 }
 
-static void FirePiercingLance(Game *game, Weapon *weapon)
+/* ★ 별: 가장 가까운 적에게 강타 1발 (Dmg40, 쿨2.0s) */
+static void FireStar(Game *game, Weapon *weapon)
 {
     const int targetIndex = FindNearestEnemy(game, weapon->range);
     Vec2 direction;
@@ -122,52 +151,38 @@ static void FirePiercingLance(Game *game, Weapon *weapon)
 
     direction.x = game->enemies[targetIndex].position.x - game->player.position.x;
     direction.y = game->enemies[targetIndex].position.y - game->player.position.y;
-    SpawnProjectile(game, weapon, direction, 16.0f, 2.2f, weapon->projectileCount);
+    SpawnProjectile(game, weapon, direction, 13.0f, 1.8f, 1);
     GameRequestSound(game, SOUND_ATTACK);
 }
 
-static void FireStarBurst(Game *game, Weapon *weapon)
-{
-    const float baseAngle = game->elapsed * 1.7f;
-    const int count = weapon->projectileCount > 0 ? weapon->projectileCount : 1;
-
-    for (int i = 0; i < count; i++) {
-        const float angle = baseAngle + ((2.0f * PI) * (float)i / (float)count);
-        SpawnProjectile(game, weapon, (Vec2){cosf(angle), sinf(angle)}, 10.0f, 1.6f, 1);
-    }
-
-    GameRequestSound(game, SOUND_ATTACK);
-}
-
+/* 현재 장착 무기만 발사 (PPT: 무기는 항상 1개) */
 void WeaponsUpdate(Game *game, float dt)
 {
-    Weapon *bolt = &game->weapons[WEAPON_MAGIC_BOLT];
-    Weapon *aura = &game->weapons[WEAPON_HOLY_AURA];
-    Weapon *lance = &game->weapons[WEAPON_PIERCING_LANCE];
-    Weapon *star = &game->weapons[WEAPON_STAR_BURST];
+    Weapon *weapon = &game->weapons[game->activeWeapon];
+    /* 공격속도 배율 적용: 쿨타임을 배율로 나눔 */
+    const float effectiveCooldown = (game->player.attackSpeedMult > 0.0f)
+        ? weapon->cooldown / game->player.attackSpeedMult
+        : weapon->cooldown;
 
-    bolt->timer -= dt;
-    if (bolt->timer <= 0.0f) {
-        FireMagicBolt(game, bolt);
-        bolt->timer += bolt->cooldown;
-    }
-
-    aura->timer -= dt;
-    if (aura->timer <= 0.0f) {
-        PulseHolyAura(game, aura);
-        aura->timer += aura->cooldown;
-    }
-
-    lance->timer -= dt;
-    if (lance->timer <= 0.0f) {
-        FirePiercingLance(game, lance);
-        lance->timer += lance->cooldown;
-    }
-
-    star->timer -= dt;
-    if (star->timer <= 0.0f) {
-        FireStarBurst(game, star);
-        star->timer += star->cooldown;
+    weapon->timer -= dt;
+    if (weapon->timer <= 0.0f) {
+        switch (game->activeWeapon) {
+            case WEAPON_MAGIC_BOLT:
+                FireCircle(game, weapon);
+                break;
+            case WEAPON_HOLY_AURA:
+                FireTriangle(game, weapon);
+                break;
+            case WEAPON_PIERCING_LANCE:
+                FireSquare(game, weapon);
+                break;
+            case WEAPON_STAR_BURST:
+                FireStar(game, weapon);
+                break;
+            default:
+                break;
+        }
+        weapon->timer += effectiveCooldown;
     }
 }
 

@@ -7,26 +7,66 @@
 
 static const char *SCORE_FILE = "scores.txt";
 
+/* PPT 무기 이름/설명 (교체 선택지용) */
+static const char *WEAPON_SWITCH_NAMES[WEAPON_COUNT] = {
+    "무기교체:원형(○)", "무기교체:삼각형(△)", "무기교체:사각형(□)", "무기교체:별(★)"
+};
+static const char *WEAPON_SWITCH_DESCS[WEAPON_COUNT] = {
+    "Dmg20 1발조준 쿨1.0s", "Dmg8 3발부채꼴 쿨0.4s",
+    "Dmg15 4방향 쿨1.0s",   "Dmg40 1발강타 쿨2.0s"
+};
+
 static void GenerateUpgrades(Game *game)
 {
-    const UpgradeOption options[] = {
-        {"Magic Bolt", "Bolt +1 damage, faster shots", WEAPON_MAGIC_BOLT, 0},
-        {"Holy Aura", "Aura +1 range, stronger pulse", WEAPON_HOLY_AURA, 1},
-        {"Piercing Lance", "Lance +1 damage, more pierce", WEAPON_PIERCING_LANCE, 2},
-        {"Star Burst", "Star +1 damage, more shots", WEAPON_STAR_BURST, 3},
-        {"Survivor", "+2 max HP, heal 2, wider XP pull", WEAPON_COUNT, 4}
+    /* PPT 업그레이드 6종 (kind: 0이동속도 1공격속도 2무기레벨업 3무기교체 4회복붕대 5무적방패) */
+    Weapon *aw = &game->weapons[game->activeWeapon];
+    WeaponType switchTarget = (WeaponType)((game->activeWeapon + 1 +
+        rand() % (WEAPON_COUNT - 1)) % WEAPON_COUNT);
+
+    const UpgradeOption pool[6] = {
+        {"이동속도 증가",  "이동 속도 +20% (교체 후 유지)", WEAPON_COUNT,  0},
+        {"공격속도 증가",  "공격 속도 +20% (교체 후 유지)", WEAPON_COUNT,  1},
+        {"무기 레벨업",
+            aw->level < 3 ? "현재 무기 데미지/사거리 +30%" : "이미 최대 레벨(Lv.3)",
+            game->activeWeapon, 2},
+        {WEAPON_SWITCH_NAMES[switchTarget], WEAPON_SWITCH_DESCS[switchTarget],
+            switchTarget, 3},
+        {"회복의 붕대",   "HP 자동 회복 패시브 (레벨업 가능)", WEAPON_COUNT, 4},
+        {"무적의 방패",   "15초 무적 자동 발동 (레벨업 가능)", WEAPON_COUNT, 5}
     };
-    bool used[5] = {false, false, false, false, false};
+
+    bool used[6] = {false, false, false, false, false, false};
 
     for (int i = 0; i < UPGRADE_CHOICES; i++) {
-        int optionIndex = rand() % 5;
+        int optionIndex = rand() % 6;
         while (used[optionIndex]) {
-            optionIndex = (optionIndex + 1) % 5;
+            optionIndex = (optionIndex + 1) % 6;
         }
         used[optionIndex] = true;
-        game->upgrades[i] = options[optionIndex];
+        game->upgrades[i] = pool[optionIndex];
     }
     game->selectedUpgrade = 0;
+}
+
+/* 무기 교체 시 초기 스펙으로 리셋 */
+static void ResetWeaponToBase(Game *game, WeaponType type)
+{
+    switch (type) {
+        case WEAPON_MAGIC_BOLT:
+            game->weapons[type] = (Weapon){type, 1, 20, 1, 18, 1.00f, 0.0f, 'o'};
+            break;
+        case WEAPON_HOLY_AURA:
+            game->weapons[type] = (Weapon){type, 1,  8, 3, 18, 0.40f, 0.0f, '^'};
+            break;
+        case WEAPON_PIERCING_LANCE:
+            game->weapons[type] = (Weapon){type, 1, 15, 4, 18, 1.00f, 0.0f, '+'};
+            break;
+        case WEAPON_STAR_BURST:
+            game->weapons[type] = (Weapon){type, 1, 40, 1, 14, 2.00f, 0.0f, '*'};
+            break;
+        default:
+            break;
+    }
 }
 
 float GameDistanceSquared(Vec2 a, Vec2 b)
@@ -181,47 +221,21 @@ void GameInit(Game *game, GameDifficulty difficulty)
     game->player.moveCooldown = 0.0f;
     game->player.invulnerableTimer = 0.0f;
     game->player.magnetRange = 4;
+    /* 패시브 아이템 초기화 */
+    game->player.hpRecoveryLevel = 0;
+    game->player.hpRecoveryTimer = 0.0f;
+    game->player.shieldLevel = 0;
+    game->player.shieldTimer = 0.0f;
+    game->player.shieldCooldown = 0.0f;
+    game->player.attackSpeedMult = 1.0f;
+    game->player.moveSpeedMult = 1.0f;
 
-    game->weapons[WEAPON_MAGIC_BOLT] = (Weapon){
-        WEAPON_MAGIC_BOLT,
-        1,
-        1,
-        1,
-        18,
-        0.62f,
-        0.25f,
-        '*'
-    };
-    game->weapons[WEAPON_HOLY_AURA] = (Weapon){
-        WEAPON_HOLY_AURA,
-        1,
-        1,
-        0,
-        2,
-        1.45f,
-        0.80f,
-        '~'
-    };
-    game->weapons[WEAPON_PIERCING_LANCE] = (Weapon){
-        WEAPON_PIERCING_LANCE,
-        1,
-        2,
-        2,
-        24,
-        1.10f,
-        0.55f,
-        '|'
-    };
-    game->weapons[WEAPON_STAR_BURST] = (Weapon){
-        WEAPON_STAR_BURST,
-        1,
-        1,
-        4,
-        0,
-        2.20f,
-        1.10f,
-        'x'
-    };
+    /* PPT 기반 무기 초기 스펙 */
+    game->activeWeapon = WEAPON_MAGIC_BOLT;   /* 시작 무기: 원형(○) */
+    game->weapons[WEAPON_MAGIC_BOLT]    = (Weapon){WEAPON_MAGIC_BOLT,    1, 20, 1, 18, 1.00f, 0.0f, 'o'};
+    game->weapons[WEAPON_HOLY_AURA]     = (Weapon){WEAPON_HOLY_AURA,     1,  8, 3, 18, 0.40f, 0.0f, '^'};
+    game->weapons[WEAPON_PIERCING_LANCE]= (Weapon){WEAPON_PIERCING_LANCE,1, 15, 4, 18, 1.00f, 0.0f, '+'};
+    game->weapons[WEAPON_STAR_BURST]    = (Weapon){WEAPON_STAR_BURST,    1, 40, 1, 14, 2.00f, 0.0f, '*'};
 
     game->elapsed = 0.0f;
     game->spawnTimer = 0.0f;
@@ -251,59 +265,58 @@ void GameInit(Game *game, GameDifficulty difficulty)
 void GameApplyUpgrade(Game *game, int index)
 {
     UpgradeOption *upgrade;
+    static const float hpIntervals[4]    = {0.0f, 30.0f, 20.0f, 15.0f};
+    static const float shieldCooldowns[4]= {0.0f,120.0f, 90.0f, 60.0f};
 
     if (index < 0 || index >= UPGRADE_CHOICES) {
         return;
     }
 
     upgrade = &game->upgrades[index];
-    if (upgrade->weapon == WEAPON_MAGIC_BOLT) {
-        Weapon *weapon = &game->weapons[WEAPON_MAGIC_BOLT];
-        weapon->level++;
-        weapon->damage++;
-        if (weapon->cooldown > 0.20f) {
-            weapon->cooldown -= 0.05f;
-        }
-        if (weapon->level == 3 || weapon->level == 5 || weapon->level == 8) {
-            weapon->projectileCount++;
-        }
-    } else if (upgrade->weapon == WEAPON_HOLY_AURA) {
-        Weapon *weapon = &game->weapons[WEAPON_HOLY_AURA];
-        weapon->level++;
-        weapon->damage++;
-        if (weapon->range < 7) {
-            weapon->range++;
-        }
-        if (weapon->cooldown > 0.55f) {
-            weapon->cooldown -= 0.08f;
-        }
-    } else if (upgrade->weapon == WEAPON_PIERCING_LANCE) {
-        Weapon *weapon = &game->weapons[WEAPON_PIERCING_LANCE];
-        weapon->level++;
-        weapon->damage++;
-        if (weapon->cooldown > 0.45f) {
-            weapon->cooldown -= 0.07f;
-        }
-        if (weapon->level == 2 || weapon->level == 4 || weapon->level == 7) {
-            weapon->projectileCount++;
-        }
-    } else if (upgrade->weapon == WEAPON_STAR_BURST) {
-        Weapon *weapon = &game->weapons[WEAPON_STAR_BURST];
-        weapon->level++;
-        weapon->damage++;
-        if (weapon->cooldown > 0.90f) {
-            weapon->cooldown -= 0.10f;
-        }
-        if (weapon->level == 2 || weapon->level == 4 || weapon->level == 6) {
-            weapon->projectileCount++;
-        }
-    } else {
-        game->player.maxHealth += 2;
-        game->player.health += 2;
-        game->player.magnetRange++;
-        if (game->player.health > game->player.maxHealth) {
-            game->player.health = game->player.maxHealth;
-        }
+
+    switch (upgrade->kind) {
+        case 0: /* 이동속도 증가 */
+            game->player.moveSpeedMult *= 1.2f;
+            if (game->player.moveSpeedMult > 1.44f) {
+                game->player.moveSpeedMult = 1.44f;
+            }
+            break;
+        case 1: /* 공격속도 증가 */
+            game->player.attackSpeedMult *= 1.2f;
+            if (game->player.attackSpeedMult > 1.44f) {
+                game->player.attackSpeedMult = 1.44f;
+            }
+            break;
+        case 2: /* 무기 레벨업 (최대 Lv.3) */
+            {
+                Weapon *weapon = &game->weapons[game->activeWeapon];
+                if (weapon->level < 3) {
+                    weapon->level++;
+                    weapon->damage = (int)((float)weapon->damage * 1.30f + 0.5f);
+                    weapon->range  = (int)((float)weapon->range  * 1.20f + 0.5f);
+                }
+            }
+            break;
+        case 3: /* 무기 교체 */
+            game->activeWeapon = upgrade->weapon;
+            ResetWeaponToBase(game, upgrade->weapon);
+            break;
+        case 4: /* 회복의 붕대 */
+            if (game->player.hpRecoveryLevel < 3) {
+                game->player.hpRecoveryLevel++;
+                game->player.hpRecoveryTimer =
+                    hpIntervals[game->player.hpRecoveryLevel];
+            }
+            break;
+        case 5: /* 무적의 방패 */
+            if (game->player.shieldLevel < 3) {
+                game->player.shieldLevel++;
+                game->player.shieldCooldown =
+                    shieldCooldowns[game->player.shieldLevel];
+            }
+            break;
+        default:
+            break;
     }
 
     game->mode = GAME_MODE_PLAYING;
@@ -408,12 +421,13 @@ void RankingLoad(RankingEntry entries[MAX_RANKINGS], int *count)
     }
 
     while (loaded < MAX_RANKINGS &&
-           fscanf(file, "%15s %d %d %d %d",
+           fscanf(file, "%15s %15s %d %d %d %d",
+               entries[loaded].name,
                entries[loaded].result,
                &entries[loaded].score,
                &entries[loaded].seconds,
                &entries[loaded].kills,
-               &entries[loaded].level) == 5) {
+               &entries[loaded].level) == 6) {
         loaded++;
     }
 
@@ -421,7 +435,7 @@ void RankingLoad(RankingEntry entries[MAX_RANKINGS], int *count)
     *count = loaded;
 }
 
-void RankingAddAndSave(const Game *game, const char *result)
+void RankingAddAndSave(const Game *game, const char *name, const char *result)
 {
     RankingEntry entries[MAX_RANKINGS + 1];
     int count = 0;
@@ -431,6 +445,8 @@ void RankingAddAndSave(const Game *game, const char *result)
     RankingLoad(entries, &count);
 
     if (count < MAX_RANKINGS + 1) {
+        strncpy(entries[count].name,   name,   sizeof(entries[count].name)   - 1);
+        entries[count].name[sizeof(entries[count].name) - 1] = '\0';
         strncpy(entries[count].result, result, sizeof(entries[count].result) - 1);
         entries[count].result[sizeof(entries[count].result) - 1] = '\0';
         entries[count].score = game->player.score + (int)game->elapsed;
@@ -460,7 +476,8 @@ void RankingAddAndSave(const Game *game, const char *result)
     }
 
     for (int i = 0; i < count; i++) {
-        fprintf(file, "%s %d %d %d %d\n",
+        fprintf(file, "%s %s %d %d %d %d\n",
+            entries[i].name[0] ? entries[i].name : "NONAME",
             entries[i].result,
             entries[i].score,
             entries[i].seconds,

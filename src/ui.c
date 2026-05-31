@@ -150,7 +150,14 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
         PutCell(game, grid, GameRound(enemy->position.x), GameRound(enemy->position.y), enemy->glyph, color);
     }
 
-    if (game->player.invulnerableTimer <= 0.0f || ((int)(game->player.invulnerableTimer * 12.0f) % 2) == 0) {
+    if (game->player.shieldTimer > 0.0f) {
+        /* 방패 무적 중: 파란색으로 점멸 */
+        if (((int)(game->player.shieldTimer * 4.0f) % 2) == 0) {
+            PutCell(game, grid, GameRound(game->player.position.x), GameRound(game->player.position.y), '@', CELL_AURA);
+        } else {
+            PutCell(game, grid, GameRound(game->player.position.x), GameRound(game->player.position.y), '@', CELL_PLAYER);
+        }
+    } else if (game->player.invulnerableTimer <= 0.0f || ((int)(game->player.invulnerableTimer * 12.0f) % 2) == 0) {
         PutCell(game, grid, GameRound(game->player.position.x), GameRound(game->player.position.y), '@', CELL_PLAYER);
     }
 }
@@ -282,25 +289,43 @@ void UiDrawGame(const Game *game)
     DrawBar("XP", game->player.xp, game->player.xpToNextLevel, 18, "\033[1;32m");
     printf("   LV %d\n", game->player.level);
 
-    printf("Weapons: Bolt Lv%d Dmg%d x%d CD%.2f | Aura Lv%d Dmg%d R%d CD%.2f\n",
-        game->weapons[WEAPON_MAGIC_BOLT].level,
-        game->weapons[WEAPON_MAGIC_BOLT].damage,
-        game->weapons[WEAPON_MAGIC_BOLT].projectileCount,
-        game->weapons[WEAPON_MAGIC_BOLT].cooldown,
-        game->weapons[WEAPON_HOLY_AURA].level,
-        game->weapons[WEAPON_HOLY_AURA].damage,
-        game->weapons[WEAPON_HOLY_AURA].range,
-        game->weapons[WEAPON_HOLY_AURA].cooldown);
-    printf("         Lance Lv%d Dmg%d P%d CD%.2f | Star Lv%d Dmg%d x%d CD%.2f\n",
-        game->weapons[WEAPON_PIERCING_LANCE].level,
-        game->weapons[WEAPON_PIERCING_LANCE].damage,
-        game->weapons[WEAPON_PIERCING_LANCE].projectileCount,
-        game->weapons[WEAPON_PIERCING_LANCE].cooldown,
-        game->weapons[WEAPON_STAR_BURST].level,
-        game->weapons[WEAPON_STAR_BURST].damage,
-        game->weapons[WEAPON_STAR_BURST].projectileCount,
-        game->weapons[WEAPON_STAR_BURST].cooldown);
-    printf("Legend: \033[1;36m@\033[0m you  \033[1;31mb\033[0m fast  \033[38;5;208mG\033[0m guard  \033[1;35mV\033[0m vampire  \033[1;33m*\033[0m bolt  \033[1;33m|\033[0m lance  \033[1;33mx\033[0m star  \033[1;32m+\033[0m XP\n\n");
+    {
+        static const char *weaponNames[WEAPON_COUNT] = {
+            "원형(○)", "삼각형(△)", "사각형(□)", "별(★)"
+        };
+        static const char *weaponGlyphs[WEAPON_COUNT] = {"o", "^", "+", "*"};
+        const Weapon *aw = &game->weapons[game->activeWeapon];
+
+        printf("\033[1;33m무기\033[0m: %s  Lv%d  Dmg%d  CD%.2fs",
+            weaponNames[game->activeWeapon], aw->level, aw->damage,
+            aw->cooldown);
+
+        /* 속도 버프 표시 */
+        if (game->player.attackSpeedMult > 1.0f) {
+            printf("  \033[1;33m공격속도x%.1f\033[0m", game->player.attackSpeedMult);
+        }
+        if (game->player.moveSpeedMult > 1.0f) {
+            printf("  \033[1;32m이동속도x%.1f\033[0m", game->player.moveSpeedMult);
+        }
+        /* 패시브 아이템 표시 */
+        if (game->player.hpRecoveryLevel > 0) {
+            printf("  \033[1;31m❤Lv%d\033[0m", game->player.hpRecoveryLevel);
+        }
+        if (game->player.shieldLevel > 0) {
+            if (game->player.shieldTimer > 0.0f) {
+                printf("  \033[1;34mSHIELD %.0fs\033[0m", game->player.shieldTimer);
+            } else {
+                printf("  \033[2;34m방패%.0fs후\033[0m", game->player.shieldCooldown);
+            }
+        }
+        printf("\n");
+        printf("Legend: \033[1;36m@\033[0m you  \033[1;31mb\033[0m 박쥐  "
+               "\033[38;5;208mG\033[0m 좀비  \033[1;35mV\033[0m 뱀파이어  "
+               "\033[1;33mo\033[0m 원형  \033[1;33m^\033[0m 삼각형  "
+               "\033[1;33m+\033[0m 사각형  \033[1;33m*\033[0m 별  "
+               "\033[1;34m@\033[0m 방패무적  \033[1;32m+\033[0m XP\n\n");
+        (void)weaponGlyphs;
+    }
 
     for (int y = 0; y < game->mapHeight; y++) {
         DrawGridLine(grid, y, game->mapWidth);
