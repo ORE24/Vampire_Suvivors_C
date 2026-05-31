@@ -53,16 +53,16 @@ static void ResetWeaponToBase(Game *game, WeaponType type)
 {
     switch (type) {
         case WEAPON_MAGIC_BOLT:
-            game->weapons[type] = (Weapon){type, 1, 20, 1, 18, 1.00f, 0.0f, 'o'};
+            game->weapons[type] = (Weapon){type, 1, 20, 1, 18, 0.60f, 0.0f, 'o'};
             break;
         case WEAPON_HOLY_AURA:
-            game->weapons[type] = (Weapon){type, 1,  8, 3, 18, 0.40f, 0.0f, '^'};
+            game->weapons[type] = (Weapon){type, 1,  8, 3, 18, 0.25f, 0.0f, '^'};
             break;
         case WEAPON_PIERCING_LANCE:
-            game->weapons[type] = (Weapon){type, 1, 15, 4, 18, 1.00f, 0.0f, '+'};
+            game->weapons[type] = (Weapon){type, 1, 15, 4, 18, 0.65f, 0.0f, '+'};
             break;
         case WEAPON_STAR_BURST:
-            game->weapons[type] = (Weapon){type, 1, 40, 1, 14, 2.00f, 0.0f, '*'};
+            game->weapons[type] = (Weapon){type, 1, 40, 1, 14, 1.40f, 0.0f, '*'};
             break;
         default:
             break;
@@ -230,12 +230,12 @@ void GameInit(Game *game, GameDifficulty difficulty)
     game->player.attackSpeedMult = 1.0f;
     game->player.moveSpeedMult = 1.0f;
 
-    /* PPT 기반 무기 초기 스펙 */
+    /* PPT 기반 무기 초기 스펙 (쿨타임 조정: 좀 더 빠르게) */
     game->activeWeapon = WEAPON_MAGIC_BOLT;   /* 시작 무기: 원형(○) */
-    game->weapons[WEAPON_MAGIC_BOLT]    = (Weapon){WEAPON_MAGIC_BOLT,    1, 20, 1, 18, 1.00f, 0.0f, 'o'};
-    game->weapons[WEAPON_HOLY_AURA]     = (Weapon){WEAPON_HOLY_AURA,     1,  8, 3, 18, 0.40f, 0.0f, '^'};
-    game->weapons[WEAPON_PIERCING_LANCE]= (Weapon){WEAPON_PIERCING_LANCE,1, 15, 4, 18, 1.00f, 0.0f, '+'};
-    game->weapons[WEAPON_STAR_BURST]    = (Weapon){WEAPON_STAR_BURST,    1, 40, 1, 14, 2.00f, 0.0f, '*'};
+    game->weapons[WEAPON_MAGIC_BOLT]    = (Weapon){WEAPON_MAGIC_BOLT,    1, 20, 1, 18, 0.60f, 0.0f, 'o'};
+    game->weapons[WEAPON_HOLY_AURA]     = (Weapon){WEAPON_HOLY_AURA,     1,  8, 3, 18, 0.25f, 0.0f, '^'};
+    game->weapons[WEAPON_PIERCING_LANCE]= (Weapon){WEAPON_PIERCING_LANCE,1, 15, 4, 18, 0.65f, 0.0f, '+'};
+    game->weapons[WEAPON_STAR_BURST]    = (Weapon){WEAPON_STAR_BURST,    1, 40, 1, 14, 1.40f, 0.0f, '*'};
 
     game->elapsed = 0.0f;
     game->spawnTimer = 0.0f;
