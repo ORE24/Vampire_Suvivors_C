@@ -11,18 +11,21 @@ static void ReadInput(InputState *input)
 {
     char ch;
 
-	memset(input, 0, sizeof(*input)); //InputState ±¸Á¶Ã¼ÀÇ ¸ðµç ¸â¹ö¸¦ 0À¸·Î ÃÊ±âÈ­
-    // input->number = 0; <- **ÇÊ¿ä¾øÀ½. Áö¿ì±â Àü ÁÖ¼® Ã³¸®.**
+	memset(input, 0, sizeof(*input)); //InputState ï¿½ï¿½ï¿½ï¿½Ã¼ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ 0ï¿½ï¿½ï¿½ï¿½ ï¿½Ê±ï¿½È­
+    // input->number = 0; <- **ï¿½Ê¿ï¿½ï¿½ï¿½ï¿½. ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½Ö¼ï¿½ Ã³ï¿½ï¿½.**
 
-	while (PlatformReadByte(&ch)) { // ch¿¡ Å°º¸µå¿¡¼­ ÀÔ·ÂµÈ ¹®ÀÚ ÀúÀå, ÀÔ·ÂÀÌ ¾øÀ¸¸é false ¹ÝÈ¯ÇÏ¿© ·çÇÁ Á¾·á
-		if (ch == '\033') { //ESC Å°°¡ ÀÔ·ÂµÇ¸é ¹æÇâÅ° ÀÔ·ÂÀ¸·Î Ã³¸®
+	while (PlatformReadByte(&ch)) { // chï¿½ï¿½ Å°ï¿½ï¿½ï¿½å¿¡ï¿½ï¿½ ï¿½Ô·Âµï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½, ï¿½Ô·ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ false ï¿½ï¿½È¯ï¿½Ï¿ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+		if (ch == '\033') { //ESC Å°ï¿½ï¿½ ï¿½Ô·ÂµÇ¸ï¿½ ï¿½ï¿½ï¿½ï¿½Å° ï¿½Ô·ï¿½ï¿½ï¿½ï¿½ï¿½ Ã³ï¿½ï¿½
             char next;
             char code;
 
             input->back = true;
+            input->pauseToggle = true;
             if (PlatformReadByte(&next) && next == '[' && PlatformReadByte(&code)) {
                 input->back = false;
-                if (code == 'A') { //ÅÍ¹Ì³ÎÀÌ ÀÚµ¿À¸·Î \033 [ A Àü¼Û
+                if (code == 'A') { //ï¿½Í¹Ì³ï¿½ï¿½ï¿½ ï¿½Úµï¿½ï¿½ï¿½ï¿½ï¿½ \033 [ A ï¿½ï¿½ï¿½ï¿½
+                input->pauseToggle = false;
+                if (code == 'A') {
                     input->up = true;
                 } else if (code == 'B') {
                     input->down = true;
@@ -63,12 +66,113 @@ static void ReadInput(InputState *input)
     }
 }
 
+static int RunSmokeTest(void)
+{
+    Game game;
+    Game hardGame;
+    Game projectileGame;
+    RankingEntry rankings[MAX_RANKINGS];
+    InputState input;
+    int rankingCount = 0;
+
+    GameInit(&game, DIFFICULTY_EASY);
+    GameInit(&hardGame, DIFFICULTY_HARD);
+
+    if (WEAPON_COUNT != 4 ||
+        game.player.maxHealth <= hardGame.player.maxHealth ||
+        game.spawnStartInterval <= hardGame.spawnStartInterval ||
+        game.highEnemyStart <= hardGame.highEnemyStart) {
+        fprintf(stderr, "smoke failed: difficulty or weapon setup is invalid\n");
+        return 1;
+    }
+
+    game.enemies[0] = (Enemy){true, ENEMY_ONE_HP, {game.player.position.x + 6.0f, game.player.position.y}, 1, 1, 1, 2, 10, 0.0f, 0.30f, 'b'};
+    WeaponsUpdate(&game, 1.20f);
+
+    {
+        int activeProjectiles = 0;
+        for (int i = 0; i < MAX_PROJECTILES; i++) {
+            if (game.projectiles[i].active) {
+                activeProjectiles++;
+            }
+        }
+        if (activeProjectiles < 3) {
+            fprintf(stderr, "smoke failed: weapon projectiles did not spawn\n");
+            return 1;
+        }
+    }
+
+    GameInit(&projectileGame, DIFFICULTY_EASY);
+    {
+        const int wallX = projectileGame.mapWidth * 28 / 100;
+        const int wallY = projectileGame.mapHeight * 32 / 100 + 1;
+
+        if (!GameMapIsBlocked(&projectileGame, wallX, wallY) ||
+            GameMapIsBlocked(&projectileGame, wallX - 1, wallY) ||
+            GameMapIsBlocked(&projectileGame, wallX + 2, wallY)) {
+            fprintf(stderr, "smoke failed: projectile wall test map setup is invalid\n");
+            return 1;
+        }
+
+        projectileGame.projectiles[0] = (Projectile){
+            true,
+            {(float)(wallX - 1), (float)wallY},
+            {32.0f, 0.0f},
+            1,
+            1.0f,
+            1,
+            '*'
+        };
+        ProjectilesUpdate(&projectileGame, 0.10f);
+        if (projectileGame.projectiles[0].active) {
+            fprintf(stderr, "smoke failed: projectile crossed a wall\n");
+            return 1;
+        }
+    }
+
+    memset(&input, 0, sizeof(input));
+    input.pauseToggle = true;
+    GameUpdate(&game, &input, 1.0f);
+
+    if (game.mode != GAME_MODE_PAUSED || game.elapsed != 0.0f) {
+        fprintf(stderr, "smoke failed: pause did not stop gameplay\n");
+        return 1;
+    }
+
+    memset(&input, 0, sizeof(input));
+    GameUpdate(&game, &input, 1.0f);
+
+    if (game.mode != GAME_MODE_PAUSED || game.elapsed != 0.0f) {
+        fprintf(stderr, "smoke failed: paused game advanced\n");
+        return 1;
+    }
+
+    input.pauseToggle = true;
+    GameUpdate(&game, &input, 1.0f);
+
+    if (game.mode != GAME_MODE_PLAYING || game.elapsed != 0.0f) {
+        fprintf(stderr, "smoke failed: resume did not restore gameplay\n");
+        return 1;
+    }
+
+    RankingLoad(rankings, &rankingCount);
+    printf("smoke ok: map=%dx%d hp=%d difficulty=%s weapons=%d rankings=%d pause=ok\n",
+        game.mapWidth,
+        game.mapHeight,
+        game.player.health,
+        GameDifficultyName(game.difficulty),
+        WEAPON_COUNT,
+        rankingCount);
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     AppScreen screen = SCREEN_TITLE;
     Game game;
     RankingEntry rankings[MAX_RANKINGS];
     int rankingCount = 0;
+    GameDifficulty selectedDifficulty = DIFFICULTY_EASY;
     bool running = true;
     bool soundEnabled = true;
     bool scoreSaved = false;
@@ -77,18 +181,11 @@ int main(int argc, char **argv)
     srand((unsigned int)time(NULL));
 
     if (argc > 1 && strcmp(argv[1], "--smoke-test") == 0) {
-        GameInit(&game);
-        RankingLoad(rankings, &rankingCount);
-        printf("smoke ok: hp=%d level=%d weapons=%d rankings=%d\n",
-            game.player.health,
-            game.player.level,
-            WEAPON_COUNT,
-            rankingCount);
-        return 0;
+        return RunSmokeTest();
     }
 
     PlatformEnterTerminal();
-    GameInit(&game);
+    GameInit(&game, selectedDifficulty);
     RankingLoad(rankings, &rankingCount);
     previousTime = PlatformNowSeconds();
 
@@ -103,6 +200,7 @@ int main(int argc, char **argv)
         }
 
         ReadInput(&input);
+
         if (input.muteToggle) {
             soundEnabled = !soundEnabled;
         }
@@ -114,26 +212,42 @@ int main(int argc, char **argv)
                 RankingLoad(rankings, &rankingCount);
                 screen = SCREEN_RANKING;
             } else if (input.start || input.select) {
-                GameInit(&game);
+                screen = SCREEN_SETUP;
+            }
+
+            UiDrawTitle();
+        } else if (screen == SCREEN_SETUP) {
+            if (input.quit) {
+                running = false;
+            } else if (input.back) {
+                screen = SCREEN_TITLE;
+            } else if (input.number == 1 || input.left || input.up) {
+                selectedDifficulty = DIFFICULTY_EASY;
+            } else if (input.number == 2 || input.right || input.down) {
+                selectedDifficulty = DIFFICULTY_HARD;
+            }
+
+            if ((input.select && input.number == 0) || input.number == 1 || input.number == 2) {
+                GameInit(&game, selectedDifficulty);
                 scoreSaved = false;
                 screen = SCREEN_GAME;
             }
 
-            UiDrawTitle();
+            if (screen == SCREEN_SETUP) {
+                UiDrawSetup(selectedDifficulty);
+            }
         } else if (screen == SCREEN_RANKING) {
             if (input.quit) {
                 running = false;
             } else if (input.back) {
                 screen = SCREEN_TITLE;
             } else if (input.start || input.select) {
-                GameInit(&game);
-                scoreSaved = false;
-                screen = SCREEN_GAME;
+                screen = SCREEN_SETUP;
             }
 
             UiDrawRanking(rankings, rankingCount);
         } else if (screen == SCREEN_GAME) {
-            if (input.quit && game.mode == GAME_MODE_PLAYING) {
+            if (input.quit && (game.mode == GAME_MODE_PLAYING || game.mode == GAME_MODE_PAUSED)) {
                 game.mode = GAME_MODE_GAME_OVER;
                 GameRequestSound(&game, SOUND_GAME_OVER);
             }
@@ -147,7 +261,7 @@ int main(int argc, char **argv)
             }
 
             if ((game.mode == GAME_MODE_GAME_OVER || game.mode == GAME_MODE_VICTORY) && input.restart) {
-                GameInit(&game);
+                GameInit(&game, selectedDifficulty);
                 scoreSaved = false;
             } else if ((game.mode == GAME_MODE_GAME_OVER || game.mode == GAME_MODE_VICTORY) && input.back) {
                 screen = SCREEN_TITLE;
@@ -158,7 +272,7 @@ int main(int argc, char **argv)
             game.pendingSounds = 0;
         }
 
-		PlatformSleepFrame(1.0 / 24.0); // ÃÊ´ç 24 ÇÁ·¹ÀÓÀ¸·Î °ÔÀÓ ·çÇÁ ½ÇÇà
+		PlatformSleepFrame(1.0 / 24.0); // ï¿½Ê´ï¿½ 24 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     }
 
     PlatformExitTerminal();

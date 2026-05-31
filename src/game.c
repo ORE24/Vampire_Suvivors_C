@@ -9,24 +9,23 @@ static const char *SCORE_FILE = "scores.txt";
 
 static void GenerateUpgrades(Game *game)
 {
-    game->upgrades[0] = (UpgradeOption){
-        "Magic Bolt",
-        "Bolt +1 damage, faster shots",
-        WEAPON_MAGIC_BOLT,
-        0
+    const UpgradeOption options[] = {
+        {"Magic Bolt", "Bolt +1 damage, faster shots", WEAPON_MAGIC_BOLT, 0},
+        {"Holy Aura", "Aura +1 range, stronger pulse", WEAPON_HOLY_AURA, 1},
+        {"Piercing Lance", "Lance +1 damage, more pierce", WEAPON_PIERCING_LANCE, 2},
+        {"Star Burst", "Star +1 damage, more shots", WEAPON_STAR_BURST, 3},
+        {"Survivor", "+2 max HP, heal 2, wider XP pull", WEAPON_COUNT, 4}
     };
-    game->upgrades[1] = (UpgradeOption){
-        "Holy Aura",
-        "Aura +1 range, stronger pulse",
-        WEAPON_HOLY_AURA,
-        1
-    };
-    game->upgrades[2] = (UpgradeOption){
-        "Survivor",
-        "+2 max HP, heal 2, wider XP pull",
-        WEAPON_COUNT,
-        2
-    };
+    bool used[5] = {false, false, false, false, false};
+
+    for (int i = 0; i < UPGRADE_CHOICES; i++) {
+        int optionIndex = rand() % 5;
+        while (used[optionIndex]) {
+            optionIndex = (optionIndex + 1) % 5;
+        }
+        used[optionIndex] = true;
+        game->upgrades[i] = options[optionIndex];
+    }
     game->selectedUpgrade = 0;
 }
 
@@ -80,40 +79,82 @@ int GameClampInt(int value, int min, int max)
     return value;
 }
 
-char GameMapTile(int x, int y)
+char GameMapTile(const Game *game, int x, int y)
 {
-    if (x < 0 || x >= MAP_WIDTH || y < 0 || y >= MAP_HEIGHT) {
+    const int mapWidth = game->mapWidth;
+    const int mapHeight = game->mapHeight;
+    const int leftWallX = mapWidth * 28 / 100;
+    const int rightWallX = mapWidth * 72 / 100;
+    const int wallTopY = mapHeight * 22 / 100;
+    const int wallBottomY = mapHeight * 78 / 100;
+    const int centerY = mapHeight / 2;
+    const int upperWallY = mapHeight * 32 / 100;
+    const int lowerWallY = mapHeight * 68 / 100;
+    const int hallLeftX = mapWidth * 39 / 100;
+    const int hallRightX = mapWidth * 61 / 100;
+    const int centerX = mapWidth / 2;
+    const int tombLeftX = mapWidth * 14 / 100;
+    const int tombRightX = mapWidth * 86 / 100;
+    const int tombTopY = mapHeight * 23 / 100;
+    const int tombBottomY = mapHeight * 77 / 100;
+
+    if (x < 0 || x >= mapWidth || y < 0 || y >= mapHeight) {
         return '#';
     }
 
-    if (x == 0 || x == MAP_WIDTH - 1 || y == 0 || y == MAP_HEIGHT - 1) {
+    if (x == 0 || x == mapWidth - 1 || y == 0 || y == mapHeight - 1) {
         return '#';
     }
 
-    if ((x == 18 || x == 45) && y >= 5 && y <= 16 && y != 10 && y != 11) {
+    if ((x == leftWallX || x == rightWallX) &&
+        y >= wallTopY &&
+        y <= wallBottomY &&
+        y != centerY &&
+        y != centerY - 1) {
         return '#';
     }
 
-    if (y == 7 && x >= 25 && x <= 38 && x != 31 && x != 32) {
+    if (y == upperWallY &&
+        x >= hallLeftX &&
+        x <= hallRightX &&
+        x != centerX &&
+        x != centerX - 1) {
         return '#';
     }
 
-    if (y == 15 && x >= 25 && x <= 38 && x != 31 && x != 32) {
+    if (y == lowerWallY &&
+        x >= hallLeftX &&
+        x <= hallRightX &&
+        x != centerX &&
+        x != centerX - 1) {
         return '#';
     }
 
-    if ((x == 9 && y == 5) || (x == 54 && y == 5) ||
-        (x == 9 && y == 16) || (x == 54 && y == 16)) {
+    if ((x == tombLeftX && y == tombTopY) ||
+        (x == tombRightX && y == tombTopY) ||
+        (x == tombLeftX && y == tombBottomY) ||
+        (x == tombRightX && y == tombBottomY) ||
+        (x == centerX - 12 && y == centerY) ||
+        (x == centerX + 12 && y == centerY)) {
         return 'T';
     }
 
     return '.';
 }
 
-bool GameMapIsBlocked(int x, int y)
+bool GameMapIsBlocked(const Game *game, int x, int y)
 {
-    const char tile = GameMapTile(x, y);
+    const char tile = GameMapTile(game, x, y);
     return tile == '#' || tile == 'T';
+}
+
+const char *GameDifficultyName(GameDifficulty difficulty)
+{
+    if (difficulty == DIFFICULTY_HARD) {
+        return "Hard";
+    }
+
+    return "Easy";
 }
 
 void GameRequestSound(Game *game, unsigned int flags)
@@ -121,14 +162,17 @@ void GameRequestSound(Game *game, unsigned int flags)
     game->pendingSounds |= flags;
 }
 
-void GameInit(Game *game)
+void GameInit(Game *game, GameDifficulty difficulty)
 {
     memset(game, 0, sizeof(*game));
 
+    game->difficulty = difficulty;
+    game->mapWidth = DEFAULT_MAP_WIDTH;
+    game->mapHeight = DEFAULT_MAP_HEIGHT;
     game->mode = GAME_MODE_PLAYING;
-    game->player.position = (Vec2){MAP_WIDTH / 2.0f, MAP_HEIGHT / 2.0f};
-    game->player.maxHealth = 12;
-    game->player.health = 12;
+    game->player.position = (Vec2){game->mapWidth / 2.0f, game->mapHeight / 2.0f};
+    game->player.maxHealth = difficulty == DIFFICULTY_HARD ? 10 : 14;
+    game->player.health = game->player.maxHealth;
     game->player.level = 1;
     game->player.xp = 0;
     game->player.xpToNextLevel = 6;
@@ -156,12 +200,49 @@ void GameInit(Game *game)
         2,
         1.45f,
         0.80f,
-        'o'
+        '~'
+    };
+    game->weapons[WEAPON_PIERCING_LANCE] = (Weapon){
+        WEAPON_PIERCING_LANCE,
+        1,
+        2,
+        2,
+        24,
+        1.10f,
+        0.55f,
+        '|'
+    };
+    game->weapons[WEAPON_STAR_BURST] = (Weapon){
+        WEAPON_STAR_BURST,
+        1,
+        1,
+        4,
+        0,
+        2.20f,
+        1.10f,
+        'x'
     };
 
     game->elapsed = 0.0f;
     game->spawnTimer = 0.0f;
-    game->spawnInterval = 1.2f;
+    if (difficulty == DIFFICULTY_HARD) {
+        game->spawnStartInterval = 0.95f;
+        game->spawnRampPerSecond = 0.0018f;
+        game->spawnMinInterval = 0.24f;
+        game->midEnemyStart = 15.0f;
+        game->highEnemyStart = 55.0f;
+        game->midEnemyChance = 48;
+        game->highEnemyChance = 13;
+    } else {
+        game->spawnStartInterval = 1.35f;
+        game->spawnRampPerSecond = 0.0011f;
+        game->spawnMinInterval = 0.38f;
+        game->midEnemyStart = 35.0f;
+        game->highEnemyStart = 105.0f;
+        game->midEnemyChance = 32;
+        game->highEnemyChance = 6;
+    }
+    game->spawnInterval = game->spawnStartInterval;
     game->auraPulseTimer = 0.0f;
     game->pendingSounds = 0;
     GenerateUpgrades(game);
@@ -196,6 +277,26 @@ void GameApplyUpgrade(Game *game, int index)
         if (weapon->cooldown > 0.55f) {
             weapon->cooldown -= 0.08f;
         }
+    } else if (upgrade->weapon == WEAPON_PIERCING_LANCE) {
+        Weapon *weapon = &game->weapons[WEAPON_PIERCING_LANCE];
+        weapon->level++;
+        weapon->damage++;
+        if (weapon->cooldown > 0.45f) {
+            weapon->cooldown -= 0.07f;
+        }
+        if (weapon->level == 2 || weapon->level == 4 || weapon->level == 7) {
+            weapon->projectileCount++;
+        }
+    } else if (upgrade->weapon == WEAPON_STAR_BURST) {
+        Weapon *weapon = &game->weapons[WEAPON_STAR_BURST];
+        weapon->level++;
+        weapon->damage++;
+        if (weapon->cooldown > 0.90f) {
+            weapon->cooldown -= 0.10f;
+        }
+        if (weapon->level == 2 || weapon->level == 4 || weapon->level == 6) {
+            weapon->projectileCount++;
+        }
     } else {
         game->player.maxHealth += 2;
         game->player.health += 2;
@@ -211,6 +312,18 @@ void GameApplyUpgrade(Game *game, int index)
 void GameUpdate(Game *game, const InputState *input, float dt)
 {
     if (game->mode == GAME_MODE_GAME_OVER || game->mode == GAME_MODE_VICTORY) {
+        return;
+    }
+
+    if (input->pauseToggle && game->mode == GAME_MODE_PLAYING) {
+        game->mode = GAME_MODE_PAUSED;
+        return;
+    }
+
+    if (game->mode == GAME_MODE_PAUSED) {
+        if (input->pauseToggle) {
+            game->mode = GAME_MODE_PLAYING;
+        }
         return;
     }
 
@@ -237,9 +350,9 @@ void GameUpdate(Game *game, const InputState *input, float dt)
         return;
     }
 
-    game->spawnInterval = 1.15f - (float)game->elapsed * 0.0014f;
-    if (game->spawnInterval < 0.30f) {
-        game->spawnInterval = 0.30f;
+    game->spawnInterval = game->spawnStartInterval - (float)game->elapsed * game->spawnRampPerSecond;
+    if (game->spawnInterval < game->spawnMinInterval) {
+        game->spawnInterval = game->spawnMinInterval;
     }
 
     PlayerUpdate(game, input, dt);
