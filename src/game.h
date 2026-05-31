@@ -14,13 +14,15 @@
 #define UPGRADE_CHOICES 3
 #define MAX_RANKINGS 5
 
-#define SURVIVAL_SECONDS 600.0
+#define SURVIVAL_SECONDS 900.0   /* PPT: 15분 */
+#define MAX_NAME_LEN 15
 
 typedef enum AppScreen {
     SCREEN_TITLE = 0,
     SCREEN_SETUP,
     SCREEN_RANKING,
-    SCREEN_GAME
+    SCREEN_GAME,
+    SCREEN_NAME_INPUT
 } AppScreen;
 
 typedef enum GameMode {
@@ -74,6 +76,7 @@ typedef struct InputState {
     bool pauseToggle;
     bool muteToggle;
     int number;
+    char typedChar;   /* 이름 입력용 일반 문자 */
 } InputState;
 
 typedef struct Vec2 {
@@ -93,6 +96,16 @@ typedef struct Player {
     float moveCooldown;
     float invulnerableTimer;
     int magnetRange;
+    /* 패시브 아이템: 회복의 붕대 */
+    int hpRecoveryLevel;    /* 0=없음, 1~3=레벨 */
+    float hpRecoveryTimer;  /* 다음 회복까지 남은 시간 */
+    /* 패시브 아이템: 무적의 방패 */
+    int shieldLevel;        /* 0=없음, 1~3=레벨 */
+    float shieldTimer;      /* 남은 무적 시간 (>0 이면 무적) */
+    float shieldCooldown;   /* 다음 방패 발동까지 남은 시간 */
+    /* 속도 배율 */
+    float attackSpeedMult;  /* 1.0 = 기본, 1.2 = +20%, 1.44 = +40% */
+    float moveSpeedMult;    /* 이동속도 배율 */
 } Player;
 
 typedef struct Enemy {
@@ -154,6 +167,7 @@ typedef struct Game {
     Projectile projectiles[MAX_PROJECTILES];
     Pickup pickups[MAX_PICKUPS];
     Weapon weapons[WEAPON_COUNT];
+    WeaponType activeWeapon;    /* 현재 장착 중인 무기 (PPT: 무기 1개) */
     UpgradeOption upgrades[UPGRADE_CHOICES];
     int selectedUpgrade;
     float elapsed;
@@ -176,6 +190,7 @@ typedef struct RankingEntry {
     int kills;
     int level;
     char result[16];
+    char name[MAX_NAME_LEN + 1];
 } RankingEntry;
 
 float GameDistanceSquared(Vec2 a, Vec2 b);
@@ -209,10 +224,11 @@ void CombatResolve(Game *game);
 void UiDrawTitle(void);
 void UiDrawSetup(GameDifficulty selectedDifficulty);
 void UiDrawRanking(const RankingEntry entries[MAX_RANKINGS], int count);
+void UiDrawNameInput(const Game *game, const char *name, int nameLen);
 void UiDrawGame(const Game *game);
 void UiPlaySounds(unsigned int flags, bool enabled);
 
 void RankingLoad(RankingEntry entries[MAX_RANKINGS], int *count);
-void RankingAddAndSave(const Game *game, const char *result);
+void RankingAddAndSave(const Game *game, const char *name, const char *result);
 
 #endif
