@@ -3,6 +3,7 @@
 #include <math.h>
 #include <stdlib.h>
 
+static int SignInt(int value) //�÷��̾��� ��ġ�� ����Ͽ� ���� �̵����� ����
 #define ENEMY_UNREACHABLE 1000000
 
 static int SignInt(int value)
@@ -16,10 +17,10 @@ static int SignInt(int value)
     return 0;
 }
 
-static bool IsEnemyAt(const Game *game, int x, int y)
+static bool IsEnemyAt(const Game *game, int x, int y) //Ư�� ��ǥ�� ���� �ִ��� Ȯ��, struct�� game.h���� ���ǵ�.
 {
-    for (int i = 0; i < MAX_ENEMIES; i++) {
-        const Enemy *enemy = &game->enemies[i];
+    for (int i = 0; i < MAX_ENEMIES; i++) {           //max enemy = 96
+        const Enemy *enemy = &game->enemies[i];       // �� �� ������ �����͸� ����Ű�� �б����� ������
         if (enemy->active && GameRound(enemy->position.x) == x && GameRound(enemy->position.y) == y) {
             return true;
         }
