@@ -1,2 +1,11 @@
 build/
 scores.txt
+.vs/
+Vampire_.A0FAFEAE/
+*.vcxproj.user
+Agents.md
+.vs/
+*.user
+*.suo
+*.wsuo
+.DS_Store

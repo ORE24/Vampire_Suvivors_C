@@ -3,6 +3,9 @@
 #include <math.h>
 #include <stdlib.h>
 
+static int SignInt(int value) //�÷��̾��� ��ġ�� ����Ͽ� ���� �̵����� ����
+#define ENEMY_UNREACHABLE 1000000
+
 static int SignInt(int value)
 {
     if (value < 0) {
@@ -14,10 +17,10 @@ static int SignInt(int value)
     return 0;
 }
 
-static bool IsEnemyAt(const Game *game, int x, int y)
+static bool IsEnemyAt(const Game *game, int x, int y) //Ư�� ��ǥ�� ���� �ִ��� Ȯ��, struct�� game.h���� ���ǵ�.
 {
-    for (int i = 0; i < MAX_ENEMIES; i++) {
-        const Enemy *enemy = &game->enemies[i];
+    for (int i = 0; i < MAX_ENEMIES; i++) {           //max enemy = 96
+        const Enemy *enemy = &game->enemies[i];       // �� �� ������ �����͸� ����Ű�� �б����� ������
         if (enemy->active && GameRound(enemy->position.x) == x && GameRound(enemy->position.y) == y) {
             return true;
         }
@@ -26,12 +29,117 @@ static bool IsEnemyAt(const Game *game, int x, int y)
     return false;
 }
 
+static void BuildEnemyDistanceMap(const Game *game, int distances[MAX_MAP_HEIGHT][MAX_MAP_WIDTH], int playerX, int playerY)
+{
+    static int queueX[MAX_MAP_WIDTH * MAX_MAP_HEIGHT];
+    static int queueY[MAX_MAP_WIDTH * MAX_MAP_HEIGHT];
+    static const int directions[4][2] = {
+        {1, 0},
+        {-1, 0},
+        {0, 1},
+        {0, -1}
+    };
+    int head = 0;
+    int tail = 0;
+
+    for (int y = 0; y < game->mapHeight; y++) {
+        for (int x = 0; x < game->mapWidth; x++) {
+            distances[y][x] = ENEMY_UNREACHABLE;
+        }
+    }
+
+    if (GameMapIsBlocked(game, playerX, playerY)) {
+        return;
+    }
+
+    distances[playerY][playerX] = 0;
+    queueX[tail] = playerX;
+    queueY[tail] = playerY;
+    tail++;
+
+    while (head < tail) {
+        const int currentX = queueX[head];
+        const int currentY = queueY[head];
+        const int nextDistance = distances[currentY][currentX] + 1;
+        head++;
+
+        for (int i = 0; i < 4; i++) {
+            const int nextX = currentX + directions[i][0];
+            const int nextY = currentY + directions[i][1];
+
+            if (nextX < 0 ||
+                nextX >= game->mapWidth ||
+                nextY < 0 ||
+                nextY >= game->mapHeight ||
+                GameMapIsBlocked(game, nextX, nextY) ||
+                distances[nextY][nextX] <= nextDistance) {
+                continue;
+            }
+
+            distances[nextY][nextX] = nextDistance;
+            queueX[tail] = nextX;
+            queueY[tail] = nextY;
+            tail++;
+        }
+    }
+}
+
+static bool TryMoveEnemyTowardPlayer(Game *game, Enemy *enemy, int distances[MAX_MAP_HEIGHT][MAX_MAP_WIDTH])
+{
+    static const int directions[8][2] = {
+        {1, 0},
+        {-1, 0},
+        {0, 1},
+        {0, -1},
+        {1, 1},
+        {1, -1},
+        {-1, 1},
+        {-1, -1}
+    };
+    const int enemyX = GameRound(enemy->position.x);
+    const int enemyY = GameRound(enemy->position.y);
+    int bestX = enemyX;
+    int bestY = enemyY;
+    int bestDistance = ENEMY_UNREACHABLE;
+    bool foundMove = false;
+
+    for (int i = 0; i < 8; i++) {
+        const int nextX = enemyX + directions[i][0];
+        const int nextY = enemyY + directions[i][1];
+
+        if (nextX < 0 ||
+            nextX >= game->mapWidth ||
+            nextY < 0 ||
+            nextY >= game->mapHeight ||
+            GameMapIsBlocked(game, nextX, nextY) ||
+            IsEnemyAt(game, nextX, nextY) ||
+            distances[nextY][nextX] >= ENEMY_UNREACHABLE) {
+            continue;
+        }
+
+        if (!foundMove || distances[nextY][nextX] < bestDistance) {
+            bestX = nextX;
+            bestY = nextY;
+            bestDistance = distances[nextY][nextX];
+            foundMove = true;
+        }
+    }
+
+    if (!foundMove) {
+        return false;
+    }
+
+    enemy->position.x = (float)bestX;
+    enemy->position.y = (float)bestY;
+    return true;
+}
+
 static void TryMovePlayer(Game *game, int dx, int dy)
 {
-    const int nextX = GameClampInt(GameRound(game->player.position.x) + dx, 1, MAP_WIDTH - 2);
-    const int nextY = GameClampInt(GameRound(game->player.position.y) + dy, 1, MAP_HEIGHT - 2);
+    const int nextX = GameClampInt(GameRound(game->player.position.x) + dx, 1, game->mapWidth - 2);
+    const int nextY = GameClampInt(GameRound(game->player.position.y) + dy, 1, game->mapHeight - 2);
 
-    if (!GameMapIsBlocked(nextX, nextY)) {
+    if (!GameMapIsBlocked(game, nextX, nextY)) {
         game->player.position.x = (float)nextX;
         game->player.position.y = (float)nextY;
     }
@@ -90,38 +198,38 @@ void EnemiesSpawnWave(Game *game)
         return;
     }
 
-    if (game->elapsed > 90.0f && rand() % 100 < 8) {
+    if (game->elapsed > game->highEnemyStart && rand() % 100 < game->highEnemyChance) {
         type = ENEMY_FORTY_HP;
-    } else if (game->elapsed > 25.0f && rand() % 100 < 38) {
+    } else if (game->elapsed > game->midEnemyStart && rand() % 100 < game->midEnemyChance) {
         type = ENEMY_THREE_HP;
     }
 
     side = rand() % 4;
     if (side == 0) {
-        x = 1 + rand() % (MAP_WIDTH - 2);
+        x = 1 + rand() % (game->mapWidth - 2);
         y = 1;
     } else if (side == 1) {
-        x = 1 + rand() % (MAP_WIDTH - 2);
-        y = MAP_HEIGHT - 2;
+        x = 1 + rand() % (game->mapWidth - 2);
+        y = game->mapHeight - 2;
     } else if (side == 2) {
         x = 1;
-        y = 1 + rand() % (MAP_HEIGHT - 2);
+        y = 1 + rand() % (game->mapHeight - 2);
     } else {
-        x = MAP_WIDTH - 2;
-        y = 1 + rand() % (MAP_HEIGHT - 2);
+        x = game->mapWidth - 2;
+        y = 1 + rand() % (game->mapHeight - 2);
     }
 
-    while (GameMapIsBlocked(x, y)) {
-        x = 1 + rand() % (MAP_WIDTH - 2);
-        y = 1 + rand() % (MAP_HEIGHT - 2);
+    while (GameMapIsBlocked(game, x, y)) {
+        x = 1 + rand() % (game->mapWidth - 2);
+        y = 1 + rand() % (game->mapHeight - 2);
     }
 
     if (type == ENEMY_ONE_HP) {
-        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 1, 1, 1, 2, 10, 0.0f, 0.42f, 'b'};
+        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 1, 1, 1, 2, 10, 0.0f, 0.30f, 'b'};
     } else if (type == ENEMY_THREE_HP) {
-        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 3, 3, 2, 5, 30, 0.0f, 0.55f, 'G'};
+        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 3, 3, 2, 6, 35, 0.0f, 0.50f, 'G'};
     } else {
-        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 40, 40, 5, 45, 400, 0.0f, 0.82f, 'V'};
+        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 40, 40, 6, 50, 450, 0.0f, 0.95f, 'V'};
     }
 }
 
@@ -129,17 +237,14 @@ void EnemiesUpdate(Game *game, float dt)
 {
     const int playerX = GameRound(game->player.position.x);
     const int playerY = GameRound(game->player.position.y);
+    static int distances[MAX_MAP_HEIGHT][MAX_MAP_WIDTH];
+
+    BuildEnemyDistanceMap(game, distances, playerX, playerY);
 
     for (int i = 0; i < MAX_ENEMIES; i++) {
         Enemy *enemy = &game->enemies[i];
         int enemyX;
         int enemyY;
-        int dx;
-        int dy;
-        int stepX;
-        int stepY;
-        int nextX;
-        int nextY;
 
         if (!enemy->active) {
             continue;
@@ -162,29 +267,7 @@ void EnemiesUpdate(Game *game, float dt)
             continue;
         }
 
-        dx = playerX - enemyX;
-        dy = playerY - enemyY;
-        stepX = SignInt(dx);
-        stepY = SignInt(dy);
-        nextX = enemyX;
-        nextY = enemyY;
-
-        if (abs(dx) >= abs(dy)) {
-            nextX += stepX;
-        } else {
-            nextY += stepY;
-        }
-
-        if (GameMapIsBlocked(nextX, nextY) || IsEnemyAt(game, nextX, nextY)) {
-            nextX = enemyX + stepX;
-            nextY = enemyY + stepY;
-        }
-
-        if (!GameMapIsBlocked(nextX, nextY) && !IsEnemyAt(game, nextX, nextY)) {
-            enemy->position.x = (float)nextX;
-            enemy->position.y = (float)nextY;
-        }
-
+        (void)TryMoveEnemyTowardPlayer(game, enemy, distances);
         enemy->moveCooldown = enemy->moveDelay;
     }
 }
@@ -258,7 +341,7 @@ void PickupsUpdate(Game *game, float dt)
             const int nextX = pickupX + SignInt(playerX - pickupX);
             const int nextY = pickupY + SignInt(playerY - pickupY);
 
-            if (!GameMapIsBlocked(nextX, nextY)) {
+            if (!GameMapIsBlocked(game, nextX, nextY)) {
                 pickup->position.x = (float)nextX;
                 pickup->position.y = (float)nextY;
             }
