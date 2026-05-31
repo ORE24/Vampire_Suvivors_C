@@ -235,12 +235,11 @@ void UiDrawRanking(const RankingEntry entries[MAX_RANKINGS], int count)
     if (count == 0) {
         printf("No recorded runs yet.\n");
     } else {
-        printf(" #  %-12s  Result  Score   Time   Kills  Level\n", "Name");
-        printf(" -- ------------  ------- ------- ------ ------ -----\n");
+        printf(" #  Result  Score   Time   Kills  Level\n");
+        printf(" -- ------- ------- ------ ------ -----\n");
         for (int i = 0; i < count; i++) {
-            printf(" %d  %-12s  %-6s  %6d  %02d:%02d  %5d  %5d\n",
+            printf(" %d  %-6s  %6d  %02d:%02d  %5d  %5d\n",
                 i + 1,
-                entries[i].name,
                 entries[i].result,
                 entries[i].score,
                 entries[i].seconds / 60,
@@ -278,6 +277,7 @@ void UiDrawNameInput(const Game *game, const char *name, int nameLen)
     printf("Press \033[1;33mEnter\033[0m to save. Press \033[1;33mEsc\033[0m to skip.\n");
     EndFrame();
 }
+
 
 void UiDrawGame(const Game *game)
 {
