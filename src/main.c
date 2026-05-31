@@ -11,11 +11,10 @@ static void ReadInput(InputState *input)
 {
     char ch;
 
-	memset(input, 0, sizeof(*input)); //InputState ����ü�� ��� ����� 0���� �ʱ�ȭ
-    // input->number = 0; <- **�ʿ����. ����� �� �ּ� ó��.**
+    memset(input, 0, sizeof(*input));
 
-	while (PlatformReadByte(&ch)) { // ch�� Ű���忡�� �Էµ� ���� ����, �Է��� ������ false ��ȯ�Ͽ� ���� ����
-		if (ch == '\033') { //ESC Ű�� �ԷµǸ� ����Ű �Է����� ó��
+    while (PlatformReadByte(&ch)) {
+        if (ch == '\033') {
             char next;
             char code;
 
@@ -23,7 +22,6 @@ static void ReadInput(InputState *input)
             input->pauseToggle = true;
             if (PlatformReadByte(&next) && next == '[' && PlatformReadByte(&code)) {
                 input->back = false;
-                if (code == 'A') { //�͹̳��� �ڵ����� \033 [ A ����
                 input->pauseToggle = false;
                 if (code == 'A') {
                     input->up = true;
@@ -272,7 +270,7 @@ int main(int argc, char **argv)
             game.pendingSounds = 0;
         }
 
-		PlatformSleepFrame(1.0 / 24.0); // �ʴ� 24 ���������� ���� ���� ����
+        PlatformSleepFrame(1.0 / 24.0);
     }
 
     PlatformExitTerminal();
