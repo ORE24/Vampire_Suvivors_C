@@ -9,3 +9,4 @@ Agents.md
 *.suo
 *.wsuo
 .DS_Store
+*.obj

@@ -241,16 +241,16 @@ void GameInit(Game *game, GameDifficulty difficulty)
     game->spawnTimer = 0.0f;
     if (difficulty == DIFFICULTY_HARD) {
         game->spawnStartInterval = 0.95f;
-        game->spawnRampPerSecond = 0.0018f;
-        game->spawnMinInterval = 0.24f;
+        game->spawnRampPerSecond = 0.0030f;
+        game->spawnMinInterval = 0.16f;
         game->midEnemyStart = 15.0f;
         game->highEnemyStart = 55.0f;
         game->midEnemyChance = 48;
         game->highEnemyChance = 13;
     } else {
         game->spawnStartInterval = 1.35f;
-        game->spawnRampPerSecond = 0.0011f;
-        game->spawnMinInterval = 0.38f;
+        game->spawnRampPerSecond = 0.0020f;
+        game->spawnMinInterval = 0.25f;
         game->midEnemyStart = 35.0f;
         game->highEnemyStart = 105.0f;
         game->midEnemyChance = 32;
@@ -277,15 +277,9 @@ void GameApplyUpgrade(Game *game, int index)
     switch (upgrade->kind) {
         case 0: /* 이동속도 증가 */
             game->player.moveSpeedMult *= 1.2f;
-            if (game->player.moveSpeedMult > 1.44f) {
-                game->player.moveSpeedMult = 1.44f;
-            }
             break;
         case 1: /* 공격속도 증가 */
             game->player.attackSpeedMult *= 1.2f;
-            if (game->player.attackSpeedMult > 1.44f) {
-                game->player.attackSpeedMult = 1.44f;
-            }
             break;
         case 2: /* 무기 레벨업 (최대 Lv.3) */
             {

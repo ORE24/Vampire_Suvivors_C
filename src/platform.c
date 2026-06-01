@@ -56,6 +56,13 @@ static bool TranslateWindowsKey(int key, char *out)
 
 void PlatformEnterTerminal(void)
 {
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+
+    /* 프레임 전체를 버퍼링했다가 fflush 한 번에 출력 → 화면 흔들림 제거 */
+    static char frameBuffer[256 * 1024];
+    setvbuf(stdout, frameBuffer, _IOFBF, sizeof(frameBuffer));
+
     inputHandle = GetStdHandle(STD_INPUT_HANDLE);
     outputHandle = GetStdHandle(STD_OUTPUT_HANDLE);
 
