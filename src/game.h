@@ -13,9 +13,9 @@
 #define MAX_PICKUPS 96
 #define UPGRADE_CHOICES 3
 #define MAX_RANKINGS 5
+#define MAX_NAME_LEN 15
 
 #define SURVIVAL_SECONDS 900.0   /* PPT: 15분 */
-#define MAX_NAME_LEN 15
 
 typedef enum AppScreen {
     SCREEN_TITLE = 0,
