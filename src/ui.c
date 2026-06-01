@@ -199,7 +199,7 @@ void UiDrawTitle(void)
     printf("\033[0m\n");
     printf("터미널 생존 게임입니다.\n\n");
     printf("\033[1;37m목표\033[0m\n");
-    printf("  15분을 생존하세요. HP가 0이 되면 게임이 종료됩니다.\n\n");
+    printf("  10분을 생존하세요. HP가 0이 되면 게임이 종료됩니다.\n\n");
     printf("\033[1;37m조작\033[0m\n");
     printf("  WASD / 방향키       : 이동\n");
     printf("  1, 2, 3 또는 Enter  : 레벨업 보상 선택\n");
@@ -343,8 +343,15 @@ void UiDrawGame(const Game *game)
         DrawGridLine(grid, y, game->mapWidth);
     }
 
+    /* 경고 문구: 0.7초마다 깜빡임. 항상 1줄 차지해서 레이아웃 고정 */
+    if (game->speedWarningTimer > 0.0f && ((int)(game->speedWarningTimer / 0.7f) % 2) == 0) {
+        printf("\033[1;31m  !! 몬스터가 더 강력해집니다! !!\033[0m\033[K\n");
+    } else {
+        printf("\033[K\n");
+    }
+
     if (game->mode == GAME_MODE_LEVEL_UP) {
-        printf("\n\033[1;33mLEVEL UP\033[0m  "
+        printf("\033[1;33mLEVEL UP\033[0m  "
                "%s[1] %-16s\033[0m  %s[2] %-16s\033[0m  %s[3] %s\033[0m\033[K\n",
             game->selectedUpgrade == 0 ? "\033[1;36m>" : " ",
             game->upgrades[0].name,
@@ -355,13 +362,13 @@ void UiDrawGame(const Game *game)
         printf("\033[0;36m→ %s\033[0m\033[K\n",
             game->upgrades[game->selectedUpgrade].description);
     } else if (game->mode == GAME_MODE_PAUSED) {
-        printf("\n\033[1;33mPAUSED\033[0m  Esc 재개  Q 게임종료\033[K\n");
+        printf("\033[1;33mPAUSED\033[0m  Esc 재개  Q 게임종료\033[K\n");
     } else if (game->mode == GAME_MODE_GAME_OVER) {
-        printf("\n\033[1;31mGAME OVER\033[0m  HP가 0이 됐습니다.  R 재시작  B/Esc 타이틀\033[K\n");
+        printf("\033[1;31mGAME OVER\033[0m  HP가 0이 됐습니다.  R 재시작  B/Esc 타이틀\033[K\n");
     } else if (game->mode == GAME_MODE_VICTORY) {
-        printf("\n\033[1;32mVICTORY\033[0m  15분을 생존했습니다!  R 재시작  B/Esc 타이틀\033[K\n");
+        printf("\033[1;32mVICTORY\033[0m  10분을 생존했습니다!  R 재시작  B/Esc 타이틀\033[K\n");
     } else {
-        printf("\n이동으로 회피하세요. 공격은 자동입니다.  Esc 일시정지  Q 게임종료  M 사운드\033[K\n");
+        printf("이동으로 회피하세요. 공격은 자동입니다.  Esc 일시정지  Q 게임종료  M 사운드\033[K\n");
     }
 
     EndFrame();
