@@ -197,19 +197,19 @@ void UiDrawTitle(void)
     printf("                    TERMINAL SURVIVORS: CRYPT MVP                    \n");
     printf("======================================================================\n");
     printf("\033[0m\n");
-    printf("A C terminal survival game. No raylib, no graphics window.\n\n");
-    printf("\033[1;37mGoal\033[0m\n");
-    printf("  Survive for 10 minutes. If HP reaches 0, the run ends.\n\n");
-    printf("\033[1;37mControls\033[0m\n");
-    printf("  WASD / Arrow keys : move\n");
-    printf("  1, 2, 3 or Enter  : choose level-up upgrade\n");
-    printf("  1 / 2             : choose Easy / Hard on setup\n");
-    printf("  R                 : ranking on this screen, restart after run\n");
-    printf("  Esc               : pause/resume during a run\n");
-    printf("  M                 : toggle terminal bell sound\n");
-    printf("  Q                 : quit or end current run\n");
-    printf("  Esc on title      : quit\n\n");
-    printf("\033[1;33mPress S or Enter to open setup. Press R for rankings.\033[0m\n");
+    printf("터미널 생존 게임입니다.\n\n");
+    printf("\033[1;37m목표\033[0m\n");
+    printf("  15분을 생존하세요. HP가 0이 되면 게임이 종료됩니다.\n\n");
+    printf("\033[1;37m조작\033[0m\n");
+    printf("  WASD / 방향키       : 이동\n");
+    printf("  1, 2, 3 또는 Enter  : 레벨업 보상 선택\n");
+    printf("  1 / 2               : 난이도 선택\n");
+    printf("  R                   : 랭킹 / 재시작\n");
+    printf("  Esc                 : 일시정지 / 재개\n");
+    printf("  M                   : 사운드 토글\n");
+    printf("  Q                   : 종료\n");
+    printf("  타이틀에서 Esc      : 게임 종료\n\n");
+    printf("\033[1;33mS 또는 Enter 게임시작  R 랭킹\033[0m\n");
     EndFrame();
 }
 
@@ -217,13 +217,13 @@ void UiDrawSetup(GameDifficulty selectedDifficulty)
 {
     BeginFrameFull();
     printf("\033[1;36m============================== SETUP ================================\033[0m\n\n");
-    printf("Choose difficulty before starting the run.\n\n");
-    printf("%s[1] Easy\033[0m  HP 14, slower waves, late vampires\n",
+    printf("게임 시작 전 난이도를 선택하세요.\n\n");
+    printf("%s[1] 이지\033[0m  HP 14, 느린 웨이브, 늦은 흡혈귀\n",
         selectedDifficulty == DIFFICULTY_EASY ? "\033[1;32m> " : "  ");
-    printf("%s[2] Hard\033[0m  HP 10, faster waves, early vampires\n\n",
+    printf("%s[2] 하드\033[0m  HP 10, 빠른 웨이브, 빠른 흡혈귀\n\n",
         selectedDifficulty == DIFFICULTY_HARD ? "\033[1;31m> " : "  ");
-    printf("Current: \033[1;33m%s\033[0m\n\n", GameDifficultyName(selectedDifficulty));
-    printf("Use arrow keys or 1/2 to change. Enter starts. B/Esc returns.\n");
+    printf("현재: \033[1;33m%s\033[0m\n\n", GameDifficultyName(selectedDifficulty));
+    printf("방향키 또는 1/2로 변경  Enter 시작  B/Esc 뒤로\n");
     EndFrame();
 }
 
@@ -233,13 +233,15 @@ void UiDrawRanking(const RankingEntry entries[MAX_RANKINGS], int count)
     printf("\033[1;33m============================== RANKING ==============================\033[0m\n\n");
 
     if (count == 0) {
-        printf("No recorded runs yet.\n");
+        printf("기록된 게임이 없습니다.\n");
     } else {
-        printf(" #  Result  Score   Time   Kills  Level\n");
-        printf(" -- ------- ------- ------ ------ -----\n");
+        printf(" #  %-15s  %-4s  %6s  %5s  %5s  %4s\n",
+            "이름", "결과", "점수", "시간", "처치", "레벨");
+        printf(" -- --------------- ---- ------- ------ ------ ----\n");
         for (int i = 0; i < count; i++) {
-            printf(" %d  %-6s  %6d  %02d:%02d  %5d  %5d\n",
+            printf(" %d  %-15s  %-4s  %6d  %02d:%02d  %5d  %4d\n",
                 i + 1,
+                entries[i].name,
                 entries[i].result,
                 entries[i].score,
                 entries[i].seconds / 60,
@@ -249,7 +251,7 @@ void UiDrawRanking(const RankingEntry entries[MAX_RANKINGS], int count)
         }
     }
 
-    printf("\nPress B/Esc to go back, S/Enter for setup, Q to quit.\n");
+    printf("\nB/Esc 뒤로  S/Enter 게임시작  Q 종료\n");
     EndFrame();
 }
 
@@ -267,14 +269,14 @@ void UiDrawNameInput(const Game *game, const char *name, int nameLen)
     printf("  Time  : %02d:%02d\n", seconds / 60, seconds % 60);
     printf("  Kills : %d\n", game->player.kills);
     printf("  Level : %d\n\n", game->player.level);
-    printf("\033[1;37mEnter your name (%d/%d chars):\033[0m\n\n", nameLen, MAX_NAME_LEN);
+    printf("\033[1;37m닉네임을 입력하세요 (%d/%d자):\033[0m\n\n", nameLen, MAX_NAME_LEN);
     printf("  \033[1;36m");
     if (nameLen > 0) {
         printf("%s", name);
     }
     printf("_\033[0m\n\n");
-    printf("Letters, numbers, - and _ allowed.\n");
-    printf("Press \033[1;33mEnter\033[0m to save. Press \033[1;33mEsc\033[0m to skip.\n");
+    printf("영문, 숫자, -, _ 사용 가능\n");
+    printf("\033[1;33mEnter\033[0m 저장  \033[1;33mEsc\033[0m 건너뛰기\n");
     EndFrame();
 }
 
@@ -350,14 +352,16 @@ void UiDrawGame(const Game *game)
             game->upgrades[1].name,
             game->selectedUpgrade == 2 ? "\033[1;36m>" : " ",
             game->upgrades[2].name);
+        printf("\033[0;36m→ %s\033[0m\033[K\n",
+            game->upgrades[game->selectedUpgrade].description);
     } else if (game->mode == GAME_MODE_PAUSED) {
-        printf("\n\033[1;33mPAUSED\033[0m  Press Esc to resume. Q ends the run.\033[K\n");
+        printf("\n\033[1;33mPAUSED\033[0m  Esc 재개  Q 게임종료\033[K\n");
     } else if (game->mode == GAME_MODE_GAME_OVER) {
-        printf("\n\033[1;31mGAME OVER\033[0m  HP reached 0. Press R to restart or B/Esc for title.\033[K\n");
+        printf("\n\033[1;31mGAME OVER\033[0m  HP가 0이 됐습니다.  R 재시작  B/Esc 타이틀\033[K\n");
     } else if (game->mode == GAME_MODE_VICTORY) {
-        printf("\n\033[1;32mVICTORY\033[0m  You survived 10 minutes. Press R to restart or B/Esc for title.\033[K\n");
+        printf("\n\033[1;32mVICTORY\033[0m  15분을 생존했습니다!  R 재시작  B/Esc 타이틀\033[K\n");
     } else {
-        printf("\nMove to dodge. Attacks are automatic. Esc pauses. Q ends the run. M toggles sound.\033[K\n");
+        printf("\n이동으로 회피하세요. 공격은 자동입니다.  Esc 일시정지  Q 게임종료  M 사운드\033[K\n");
     }
 
     EndFrame();

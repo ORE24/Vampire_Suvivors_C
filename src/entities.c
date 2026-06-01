@@ -238,19 +238,28 @@ void EnemiesSpawnWave(Game *game)
         type = ENEMY_THREE_HP;
     }
 
-    side = rand() % 4;
-    if (side == 0) {
-        x = 1 + rand() % (game->mapWidth - 2);
-        y = 1;
-    } else if (side == 1) {
-        x = 1 + rand() % (game->mapWidth - 2);
-        y = game->mapHeight - 2;
-    } else if (side == 2) {
-        x = 1;
-        y = 1 + rand() % (game->mapHeight - 2);
-    } else {
-        x = game->mapWidth - 2;
-        y = 1 + rand() % (game->mapHeight - 2);
+    const int playerX = GameRound(game->player.position.x);
+    const int playerY = GameRound(game->player.position.y);
+    const int minDist = 10;
+
+    for (int attempt = 0; attempt < 20; attempt++) {
+        side = rand() % 4;
+        if (side == 0) {
+            x = 1 + rand() % (game->mapWidth - 2);
+            y = 1;
+        } else if (side == 1) {
+            x = 1 + rand() % (game->mapWidth - 2);
+            y = game->mapHeight - 2;
+        } else if (side == 2) {
+            x = 1;
+            y = 1 + rand() % (game->mapHeight - 2);
+        } else {
+            x = game->mapWidth - 2;
+            y = 1 + rand() % (game->mapHeight - 2);
+        }
+        if (abs(x - playerX) + abs(y - playerY) >= minDist && !GameMapIsBlocked(game, x, y)) {
+            break;
+        }
     }
 
     while (GameMapIsBlocked(game, x, y)) {
