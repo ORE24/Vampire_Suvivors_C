@@ -18,10 +18,10 @@ static void ReadInput(InputState *input)
             char next;
             char code;
 
-            input->back = true;
+            input->escape = true;
             input->pauseToggle = true;
             if (PlatformReadByte(&next) && next == '[' && PlatformReadByte(&code)) {
-                input->back = false;
+                input->escape = false;
                 input->pauseToggle = false;
                 if (code == 'A') {
                     input->up = true;
@@ -212,7 +212,7 @@ int main(int argc, char **argv)
         }
 
         if (screen == SCREEN_TITLE) {
-            if (input.quit || input.back) {
+            if (input.quit || input.back || input.escape) {
                 running = false;
             } else if (input.ranking) {
                 RankingLoad(rankings, &rankingCount);
@@ -225,7 +225,7 @@ int main(int argc, char **argv)
         } else if (screen == SCREEN_SETUP) {
             if (input.quit) {
                 running = false;
-            } else if (input.back) {
+            } else if (input.back || input.escape) {
                 screen = SCREEN_TITLE;
             } else if (input.number == 1 || input.left || input.up) {
                 selectedDifficulty = DIFFICULTY_EASY;
@@ -245,7 +245,7 @@ int main(int argc, char **argv)
         } else if (screen == SCREEN_RANKING) {
             if (input.quit) {
                 running = false;
-            } else if (input.back) {
+            } else if (input.back || input.escape) {
                 screen = SCREEN_TITLE;
             } else if (input.start || input.select) {
                 screen = SCREEN_SETUP;
@@ -270,7 +270,7 @@ int main(int argc, char **argv)
             if ((game.mode == GAME_MODE_GAME_OVER || game.mode == GAME_MODE_VICTORY) && input.restart) {
                 GameInit(&game, selectedDifficulty);
                 scoreSaved = false;
-            } else if ((game.mode == GAME_MODE_GAME_OVER || game.mode == GAME_MODE_VICTORY) && input.back) {
+            } else if ((game.mode == GAME_MODE_GAME_OVER || game.mode == GAME_MODE_VICTORY) && (input.back || input.escape)) {
                 screen = SCREEN_TITLE;
             }
 
@@ -278,34 +278,35 @@ int main(int argc, char **argv)
             UiPlaySounds(game.pendingSounds, soundEnabled);
             game.pendingSounds = 0;
         } else if (screen == SCREEN_NAME_INPUT) {
-            /* 이름 입력: 문자 추가 */
-            if (input.typedChar != 0 && playerNameLen < MAX_NAME_LEN) {
-                playerName[playerNameLen++] = input.typedChar;
-                playerName[playerNameLen] = '\0';
-            }
-            /* B키로 한 글자 삭제 */
-            if (input.back && playerNameLen > 0) {
-                playerName[--playerNameLen] = '\0';
-            }
-            /* Enter → 저장 후 랭킹 화면 */
-            if (input.select) {
-                if (playerNameLen == 0) {
-                    strncpy(playerName, "NONAME", MAX_NAME_LEN);
-                    playerNameLen = 6;
-                }
-                RankingAddAndSave(&game, playerName,
-                    game.mode == GAME_MODE_VICTORY ? "WIN" : "LOSE");
-                RankingLoad(rankings, &rankingCount);
-                scoreSaved = true;
-                screen = SCREEN_RANKING;
-            }
-            /* Q/Esc → 이름 없이 저장 */
-            if (input.quit) {
+            /* Esc/Q → 이름 없이 저장 (skip) */
+            if (input.escape || input.quit) {
                 RankingAddAndSave(&game, "NONAME",
                     game.mode == GAME_MODE_VICTORY ? "WIN" : "LOSE");
                 RankingLoad(rankings, &rankingCount);
                 scoreSaved = true;
                 screen = SCREEN_RANKING;
+            } else {
+                /* 이름 입력: 문자 추가 */
+                if (input.typedChar != 0 && playerNameLen < MAX_NAME_LEN) {
+                    playerName[playerNameLen++] = input.typedChar;
+                    playerName[playerNameLen] = '\0';
+                }
+                /* 백스페이스/B키로 한 글자 삭제 */
+                if (input.back && playerNameLen > 0) {
+                    playerName[--playerNameLen] = '\0';
+                }
+                /* Enter → 저장 후 랭킹 화면 */
+                if (input.select) {
+                    if (playerNameLen == 0) {
+                        strncpy(playerName, "NONAME", MAX_NAME_LEN);
+                        playerNameLen = 6;
+                    }
+                    RankingAddAndSave(&game, playerName,
+                        game.mode == GAME_MODE_VICTORY ? "WIN" : "LOSE");
+                    RankingLoad(rankings, &rankingCount);
+                    scoreSaved = true;
+                    screen = SCREEN_RANKING;
+                }
             }
             UiDrawNameInput(&game, playerName, playerNameLen);
         }

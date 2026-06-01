@@ -73,6 +73,7 @@ typedef struct InputState {
     bool ranking;
     bool restart;
     bool quit;
+    bool escape;
     bool pauseToggle;
     bool muteToggle;
     int number;

@@ -328,7 +328,7 @@ void UiDrawGame(const Game *game)
                 printf("  \033[2;34m방패%.0fs후\033[0m", game->player.shieldCooldown);
             }
         }
-        printf("\n");
+        printf("\033[K\n");
         printf("Legend: \033[1;36m@\033[0m you  \033[1;31mb\033[0m 박쥐  "
                "\033[38;5;208mG\033[0m 좀비  \033[1;35mV\033[0m 뱀파이어  "
                "\033[1;33mo\033[0m 원형  \033[1;33m^\033[0m 삼각형  "
@@ -343,7 +343,7 @@ void UiDrawGame(const Game *game)
 
     if (game->mode == GAME_MODE_LEVEL_UP) {
         printf("\n\033[1;33mLEVEL UP\033[0m  "
-               "%s[1] %-16s\033[0m  %s[2] %-16s\033[0m  %s[3] %s\033[0m\n",
+               "%s[1] %-16s\033[0m  %s[2] %-16s\033[0m  %s[3] %s\033[0m\033[K\n",
             game->selectedUpgrade == 0 ? "\033[1;36m>" : " ",
             game->upgrades[0].name,
             game->selectedUpgrade == 1 ? "\033[1;36m>" : " ",
@@ -351,13 +351,13 @@ void UiDrawGame(const Game *game)
             game->selectedUpgrade == 2 ? "\033[1;36m>" : " ",
             game->upgrades[2].name);
     } else if (game->mode == GAME_MODE_PAUSED) {
-        printf("\n\033[1;33mPAUSED\033[0m  Press Esc to resume. Q ends the run.\n");
+        printf("\n\033[1;33mPAUSED\033[0m  Press Esc to resume. Q ends the run.\033[K\n");
     } else if (game->mode == GAME_MODE_GAME_OVER) {
-        printf("\n\033[1;31mGAME OVER\033[0m  HP reached 0. Press R to restart or B/Esc for title.\n");
+        printf("\n\033[1;31mGAME OVER\033[0m  HP reached 0. Press R to restart or B/Esc for title.\033[K\n");
     } else if (game->mode == GAME_MODE_VICTORY) {
-        printf("\n\033[1;32mVICTORY\033[0m  You survived 10 minutes. Press R to restart or B/Esc for title.\n");
+        printf("\n\033[1;32mVICTORY\033[0m  You survived 10 minutes. Press R to restart or B/Esc for title.\033[K\n");
     } else {
-        printf("\nMove to dodge. Attacks are automatic. Esc pauses. Q ends the run. M toggles sound.\n");
+        printf("\nMove to dodge. Attacks are automatic. Esc pauses. Q ends the run. M toggles sound.\033[K\n");
     }
 
     EndFrame();

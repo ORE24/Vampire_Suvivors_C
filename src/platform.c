@@ -56,6 +56,9 @@ static bool TranslateWindowsKey(int key, char *out)
 
 void PlatformEnterTerminal(void)
 {
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+
     inputHandle = GetStdHandle(STD_INPUT_HANDLE);
     outputHandle = GetStdHandle(STD_OUTPUT_HANDLE);
 
