@@ -15,7 +15,7 @@
 #define MAX_RANKINGS 5
 #define MAX_NAME_LEN 15
 
-#define SURVIVAL_SECONDS 900.0   /* PPT: 15분 */
+#define SURVIVAL_SECONDS 600.0   /* PPT: 10분 */
 
 typedef enum AppScreen {
     SCREEN_TITLE = 0,
@@ -182,6 +182,8 @@ typedef struct Game {
     int midEnemyChance;
     int highEnemyChance;
     float auraPulseTimer;
+    float speedWarningTimer;  /* >0 이면 "몬스터 강력" 경고 표시 */
+    int   lastSpeedStep;      /* 마지막으로 감지한 속도 단계 */
     unsigned int pendingSounds;
 } Game;
 

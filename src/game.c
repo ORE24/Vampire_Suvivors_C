@@ -238,6 +238,8 @@ void GameInit(Game *game, GameDifficulty difficulty)
     game->weapons[WEAPON_STAR_BURST]    = (Weapon){WEAPON_STAR_BURST,    1, 40, 1, 14, 1.40f, 0.0f, '*'};
 
     game->elapsed = 0.0f;
+    game->speedWarningTimer = 0.0f;
+    game->lastSpeedStep = 0;
     game->spawnTimer = 0.0f;
     if (difficulty == DIFFICULTY_HARD) {
         game->spawnStartInterval = 0.95f;
@@ -350,6 +352,18 @@ void GameUpdate(Game *game, const InputState *input, float dt)
     }
 
     game->elapsed += dt;
+
+    {
+        int curStep = (int)(game->elapsed / 120.0f);
+        if (curStep > game->lastSpeedStep) {
+            game->lastSpeedStep = curStep;
+            game->speedWarningTimer = 5.0f;
+        }
+        if (game->speedWarningTimer > 0.0f) {
+            game->speedWarningTimer -= dt;
+        }
+    }
+
     if (game->elapsed >= SURVIVAL_SECONDS) {
         game->mode = GAME_MODE_VICTORY;
         game->player.score += 1000;

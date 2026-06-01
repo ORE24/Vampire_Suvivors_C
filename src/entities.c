@@ -162,7 +162,7 @@ void PlayerUpdate(Game *game, const InputState *input, float dt)
     /* ❤️ 회복의 붕대: 일정 시간마다 HP 자동 회복 */
     if (game->player.hpRecoveryLevel > 0) {
         static const int   amounts[4]   = {0, 2, 3, 5};
-        static const float intervals[4] = {0.0f, 30.0f, 20.0f, 15.0f};
+        static const float intervals[4] = {0.0f, 240.0f, 240.0f, 240.0f};
 
         game->player.hpRecoveryTimer -= dt;
         if (game->player.hpRecoveryTimer <= 0.0f) {
@@ -267,12 +267,17 @@ void EnemiesSpawnWave(Game *game)
         y = 1 + rand() % (game->mapHeight - 2);
     }
 
-    if (type == ENEMY_ONE_HP) {
-        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 1, 1, 1, 2, 10, 0.0f, 0.30f, 'b'};
-    } else if (type == ENEMY_THREE_HP) {
-        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 3, 3, 2, 6, 35, 0.0f, 0.50f, 'G'};
-    } else {
-        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 40, 40, 6, 50, 450, 0.0f, 0.95f, 'V'};
+    {
+        int steps = (int)(game->elapsed / 120.0f);
+        float speedScale = 1.0f - steps * 0.03f;
+        if (speedScale < 0.5f) speedScale = 0.5f;
+        if (type == ENEMY_ONE_HP) {
+            game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 1, 1, 1, 2, 10, 0.0f, 0.30f * speedScale, 'b'};
+        } else if (type == ENEMY_THREE_HP) {
+            game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 3, 3, 2, 6, 35, 0.0f, 0.50f * speedScale, 'G'};
+        } else {
+            game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 40, 40, 6, 50, 450, 0.0f, 0.95f * speedScale, 'V'};
+        }
     }
 }
 
