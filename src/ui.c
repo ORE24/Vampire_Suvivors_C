@@ -66,6 +66,11 @@ static void BeginFrameFull(void)
     printf("\033[2J\033[H");  /* 화면 전체 지우기 + 맨 위로 */
 }
 
+static void BeginCleanFrame(void)
+{
+    printf("\033[H\033[2J");
+}
+
 static void EndFrame(void)
 {
     printf("\033[0m\033[J");  /* 남은 내용 지우기 */
@@ -208,7 +213,7 @@ static void DrawGridLine(const Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH], int y, 
 
 void UiDrawTitle(void)
 {
-    BeginFrameFull();
+    BeginCleanFrame();
     printf("\033[1;36m");
     printf("======================================================================\n");
     printf("                    TERMINAL SURVIVORS: CRYPT MVP                    \n");
@@ -232,7 +237,7 @@ void UiDrawTitle(void)
 
 void UiDrawSetup(GameDifficulty selectedDifficulty)
 {
-    BeginFrameFull();
+    BeginCleanFrame();
     printf("\033[1;36m============================== SETUP ================================\033[0m\n\n");
     printf("게임 시작 전 난이도를 선택하세요.\n\n");
     printf("%s[1] 이지\033[0m  HP 14, 느린 웨이브, 늦은 흡혈귀\n",
@@ -246,7 +251,7 @@ void UiDrawSetup(GameDifficulty selectedDifficulty)
 
 void UiDrawRanking(const RankingEntry entries[MAX_RANKINGS], int count)
 {
-    BeginFrameFull();
+    BeginCleanFrame();
     printf("\033[1;33m============================== RANKING ==============================\033[0m\n\n");
 
     if (count == 0) {
