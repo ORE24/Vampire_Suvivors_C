@@ -3,6 +3,8 @@
 
 #include <stdbool.h>
 
+#include "platform.h"
+
 #define DEFAULT_MAP_WIDTH 96
 #define DEFAULT_MAP_HEIGHT 30
 #define MAX_MAP_WIDTH DEFAULT_MAP_WIDTH
@@ -11,11 +13,14 @@
 #define MAX_ENEMIES 96
 #define MAX_PROJECTILES 96
 #define MAX_PICKUPS 96
+#define MAX_BOSSES 4
+#define BOSS_ALTAR_COUNT 4
+#define BOSS_SEQUENCE_LEN 3
 #define UPGRADE_CHOICES 3
 #define MAX_RANKINGS 5
 #define MAX_NAME_LEN 15
-
-#define SURVIVAL_SECONDS 600.0   /* PPT: 10분 */
+#define DICE_MESSAGE_LEN 80
+#define BOSS_MESSAGE_LEN 96
 
 typedef enum AppScreen {
     SCREEN_TITLE = 0,
@@ -45,6 +50,12 @@ typedef enum GameDifficulty {
     DIFFICULTY_HARD
 } GameDifficulty;
 
+typedef enum MapPhase {
+    MAP_PHASE_CRYPT = 0,
+    MAP_PHASE_GRAVEYARD,
+    MAP_PHASE_BOSS_ARENA
+} MapPhase;
+
 typedef enum WeaponType {
     WEAPON_MAGIC_BOLT = 0,
     WEAPON_HOLY_AURA,
@@ -54,13 +65,55 @@ typedef enum WeaponType {
 } WeaponType;
 
 typedef enum SoundFlag {
-    SOUND_ATTACK = 1u << 0,
-    SOUND_XP = 1u << 1,
-    SOUND_LEVEL_UP = 1u << 2,
-    SOUND_HIT = 1u << 3,
-    SOUND_GAME_OVER = 1u << 4,
-    SOUND_VICTORY = 1u << 5
+    SOUND_UI_MOVE = 1u << 0,
+    SOUND_UI_CONFIRM = 1u << 1,
+    SOUND_SHOOT = 1u << 2,
+    SOUND_XP_PICKUP = 1u << 3,
+    SOUND_HEAL_PICKUP = 1u << 4,
+    SOUND_POWER_PICKUP = 1u << 5,
+    SOUND_LEVEL_UP = 1u << 6,
+    SOUND_HIT = 1u << 7,
+    SOUND_GAME_OVER = 1u << 8,
+    SOUND_VICTORY = 1u << 9
 } SoundFlag;
+
+typedef enum PickupType {
+    PICKUP_XP = 0,
+    PICKUP_HEAL_PACK,
+    PICKUP_VACUUM,
+    PICKUP_ROSARY,
+    PICKUP_GAMBLER_DICE,
+    PICKUP_FRENZY_MAGAZINE,
+    PICKUP_PINATA_SKULL
+} PickupType;
+
+typedef enum MiniEventType {
+    MINI_EVENT_NONE = 0,
+    MINI_EVENT_BLOOD_MIST,
+    MINI_EVENT_BAT_STORM
+} MiniEventType;
+
+typedef enum BossPhase {
+    BOSS_PHASE_NONE = 0,
+    BOSS_PHASE_ONE,
+    BOSS_PHASE_TWO
+} BossPhase;
+
+typedef enum BossStatus {
+    BOSS_STATUS_NONE = 0,
+    BOSS_STATUS_SHIELDED,
+    BOSS_STATUS_VULNERABLE,
+    BOSS_STATUS_CLONES,
+    BOSS_STATUS_FINAL_DAMAGE,
+    BOSS_STATUS_DEFEATED
+} BossStatus;
+
+typedef enum BossPuzzle {
+    BOSS_PUZZLE_NONE = 0,
+    BOSS_PUZZLE_SEQUENCE,
+    BOSS_PUZZLE_ORB,
+    BOSS_PUZZLE_SEAL
+} BossPuzzle;
 
 typedef struct InputState {
     bool up;
@@ -135,6 +188,7 @@ typedef struct Projectile {
 
 typedef struct Pickup {
     bool active;
+    PickupType type;
     Vec2 position;
     int value;
     float moveCooldown;
@@ -151,6 +205,14 @@ typedef struct Weapon {
     char glyph;
 } Weapon;
 
+typedef struct Boss {
+    bool active;
+    Vec2 position;
+    int health;
+    int maxHealth;
+    char glyph;
+} Boss;
+
 typedef struct UpgradeOption {
     const char *name;
     const char *description;
@@ -161,10 +223,12 @@ typedef struct UpgradeOption {
 typedef struct Game {
     GameMode mode;
     GameDifficulty difficulty;
+    MapPhase mapPhase;
     int mapWidth;
     int mapHeight;
     Player player;
     Enemy enemies[MAX_ENEMIES];
+    Boss bosses[MAX_BOSSES];
     Projectile projectiles[MAX_PROJECTILES];
     Pickup pickups[MAX_PICKUPS];
     Weapon weapons[WEAPON_COUNT];
@@ -182,8 +246,53 @@ typedef struct Game {
     int midEnemyChance;
     int highEnemyChance;
     float auraPulseTimer;
+    float graveyardWarningTimer;
+    float graveyardSpawnTimer;
+    float graveyardSpawnInterval;
+    float frenzyTimer;      /* >0 이면 폭주 탄창: 랜덤 탄막 발사 */
+    float frenzyShotTimer;
+    MiniEventType activeMiniEvent;
+    float nextMiniEventTime;
+    float miniEventTimer;
+    float miniEventMessageTimer;
+    char diceMessage[DICE_MESSAGE_LEN];
+    float diceMessageTimer;
     float speedWarningTimer;  /* >0 이면 "몬스터 강력" 경고 표시 */
     int   lastSpeedStep;      /* 마지막으로 감지한 속도 단계 */
+    BossPhase bossPhase;
+    BossStatus bossStatus;
+    BossPuzzle bossPuzzle;
+    int bossCount;
+    int trueBossIndex;
+    int phaseOneDamageWindow;
+    int bossSequence[BOSS_SEQUENCE_LEN];
+    int bossSequenceProgress;
+    Vec2 bossAltars[BOSS_ALTAR_COUNT];
+    char bossAltarGlyphs[BOSS_ALTAR_COUNT];
+    bool bossAltarsActive;
+    Vec2 bossOrbPosition;
+    bool bossOrbActive;
+    bool bossOrbCarried;
+    int bossOrbDeliveries;
+    Vec2 bossCentralAltar;
+    Vec2 bossSealAltars[BOSS_ALTAR_COUNT];
+    bool bossSealAltarsActive;
+    int bossSealCount;
+    int bossLastPlayerAltar;
+    float bossSpawnTimer;
+    float bossShadowSpawnTimer;
+    bool bossShadowActive;
+    Vec2 bossShadowPosition;
+    float bossShadowTimer;
+    float bossShadowDamageCooldown;
+    char bossForbiddenKey;
+    float bossForbiddenTimer;
+    float bossForbiddenRollTimer;
+    float bossTrueSwapTimer;
+    float bossSealRelocateTimer;
+    float bossFlashTimer;
+    char bossMessage[BOSS_MESSAGE_LEN];
+    float bossMessageTimer;
     unsigned int pendingSounds;
 } Game;
 
@@ -204,20 +313,30 @@ int GameRound(float value);
 int GameClampInt(int value, int min, int max);
 bool GameMapIsBlocked(const Game *game, int x, int y);
 char GameMapTile(const Game *game, int x, int y);
+bool GameGraveyardSpawnPoint(const Game *game, int index, int *x, int *y);
 const char *GameDifficultyName(GameDifficulty difficulty);
 
 void GameInit(Game *game, GameDifficulty difficulty);
 void GameUpdate(Game *game, const InputState *input, float dt);
 void GameApplyUpgrade(Game *game, int index);
 void GameRequestSound(Game *game, unsigned int flags);
+bool GameBossTargetPosition(const Game *game, Vec2 *position, int range);
+bool GameBossApplyProjectileHit(Game *game, Projectile *projectile);
+void GameBossDamageInRadius(Game *game, Vec2 center, int radius, int damage);
+void GameBossOnPlayerHit(Game *game);
 
 void PlayerUpdate(Game *game, const InputState *input, float dt);
 
 void EnemiesSpawnWave(Game *game);
+void EnemiesSpawnGraveyardWave(Game *game);
+void EnemiesSpawnBatStorm(Game *game, int count);
 void EnemiesUpdate(Game *game, float dt);
 void EnemiesDamageInRadius(Game *game, Vec2 center, int radius, int damage);
+void EnemyDefeat(Game *game, Enemy *enemy);
 
 void PickupSpawn(Game *game, Vec2 position, int value);
+void PickupSpawnTyped(Game *game, Vec2 position, PickupType type, int value);
+void PickupApplyGamblerDiceEffect(Game *game, int effect);
 void PickupsUpdate(Game *game, float dt);
 
 void WeaponsUpdate(Game *game, float dt);
@@ -229,6 +348,7 @@ void UiDrawSetup(GameDifficulty selectedDifficulty);
 void UiDrawRanking(const RankingEntry entries[MAX_RANKINGS], int count);
 void UiDrawNameInput(const Game *game, const char *name, int nameLen);
 void UiDrawGame(const Game *game);
+PlatformSound UiSoundEvent(unsigned int flags);
 void UiPlaySounds(unsigned int flags, bool enabled);
 
 void RankingLoad(RankingEntry entries[MAX_RANKINGS], int *count);

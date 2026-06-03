@@ -1,5 +1,6 @@
 build/
 scores.txt
+.codex/
 .vs/
 Vampire_.A0FAFEAE/
 *.vcxproj.user

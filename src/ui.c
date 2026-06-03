@@ -1,6 +1,8 @@
 #include "game.h"
+#include "platform.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 typedef enum CellColor {
@@ -12,7 +14,13 @@ typedef enum CellColor {
     CELL_ENEMY_HIGH,
     CELL_PROJECTILE,
     CELL_XP,
+    CELL_PICKUP_HEAL,
+    CELL_PICKUP_POWER,
     CELL_AURA,
+    CELL_BOSS,
+    CELL_BOSS_TRUE,
+    CELL_SHADOW,
+    CELL_PUZZLE,
     CELL_TEXT
 } CellColor;
 
@@ -40,8 +48,20 @@ static const char *ColorCode(CellColor color)
             return "\033[1;33m";
         case CELL_XP:
             return "\033[1;32m";
+        case CELL_PICKUP_HEAL:
+            return "\033[1;31m";
+        case CELL_PICKUP_POWER:
+            return "\033[1;35m";
         case CELL_AURA:
             return "\033[1;34m";
+        case CELL_BOSS:
+            return "\033[1;35m";
+        case CELL_BOSS_TRUE:
+            return "\033[1;33m";
+        case CELL_SHADOW:
+            return "\033[2;36m";
+        case CELL_PUZZLE:
+            return "\033[1;32m";
         case CELL_TEXT:
             return "\033[1;37m";
     }
@@ -54,6 +74,7 @@ static void BeginFrame(void)
 {
     printf("\033[?25l");   /* 커서 숨기기 → 위아래 흔들림 방지 */
     printf("\033[H");      /* 커서를 맨 위로 */
+    printf("\033[J");      /* 이번 프레임보다 긴 이전 텍스트 잔상 제거 */
 }
 
 /* 메뉴/랭킹용: 전체 화면 완전히 지운 뒤 그리기 (이전 화면 잔상 제거) */
@@ -102,6 +123,32 @@ static void PutCell(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH], 
     grid[y][x].color = color;
 }
 
+static void PickupAppearance(PickupType type, char *glyph, CellColor *color)
+{
+    *glyph = '+';
+    *color = CELL_XP;
+
+    if (type == PICKUP_HEAL_PACK) {
+        *glyph = 'H';
+        *color = CELL_PICKUP_HEAL;
+    } else if (type == PICKUP_VACUUM) {
+        *glyph = 'M';
+        *color = CELL_PICKUP_POWER;
+    } else if (type == PICKUP_ROSARY) {
+        *glyph = 'R';
+        *color = CELL_PICKUP_POWER;
+    } else if (type == PICKUP_GAMBLER_DICE) {
+        *glyph = '?';
+        *color = CELL_PICKUP_POWER;
+    } else if (type == PICKUP_FRENZY_MAGAZINE) {
+        *glyph = 'B';
+        *color = CELL_PICKUP_POWER;
+    } else if (type == PICKUP_PINATA_SKULL) {
+        *glyph = 'C';
+        *color = CELL_PICKUP_POWER;
+    }
+}
+
 static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH])
 {
     for (int y = 0; y < game->mapHeight; y++) {
@@ -132,8 +179,55 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
     for (int i = 0; i < MAX_PICKUPS; i++) {
         const Pickup *pickup = &game->pickups[i];
         if (pickup->active) {
-            PutCell(game, grid, GameRound(pickup->position.x), GameRound(pickup->position.y), '+', CELL_XP);
+            char glyph;
+            CellColor color;
+
+            PickupAppearance(pickup->type, &glyph, &color);
+            PutCell(game, grid, GameRound(pickup->position.x), GameRound(pickup->position.y), glyph, color);
         }
+    }
+
+    if (game->bossAltarsActive) {
+        for (int i = 0; i < BOSS_ALTAR_COUNT; i++) {
+            PutCell(game, grid,
+                GameRound(game->bossAltars[i].x),
+                GameRound(game->bossAltars[i].y),
+                game->bossAltarGlyphs[i],
+                CELL_PUZZLE);
+        }
+    }
+
+    if (game->bossPuzzle == BOSS_PUZZLE_ORB) {
+        PutCell(game, grid,
+            GameRound(game->bossCentralAltar.x),
+            GameRound(game->bossCentralAltar.y),
+            'A',
+            CELL_PUZZLE);
+        if (game->bossOrbActive || game->bossOrbCarried) {
+            PutCell(game, grid,
+                GameRound(game->bossOrbPosition.x),
+                GameRound(game->bossOrbPosition.y),
+                'O',
+                CELL_BOSS_TRUE);
+        }
+    }
+
+    if (game->bossSealAltarsActive) {
+        for (int i = 0; i < BOSS_ALTAR_COUNT; i++) {
+            PutCell(game, grid,
+                GameRound(game->bossSealAltars[i].x),
+                GameRound(game->bossSealAltars[i].y),
+                'A',
+                CELL_PUZZLE);
+        }
+    }
+
+    if (game->bossShadowActive) {
+        PutCell(game, grid,
+            GameRound(game->bossShadowPosition.x),
+            GameRound(game->bossShadowPosition.y),
+            '&',
+            CELL_SHADOW);
     }
 
     for (int i = 0; i < MAX_PROJECTILES; i++) {
@@ -158,6 +252,54 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
         }
 
         PutCell(game, grid, GameRound(enemy->position.x), GameRound(enemy->position.y), enemy->glyph, color);
+    }
+
+    for (int i = 0; i < game->bossCount && i < MAX_BOSSES; i++) {
+        const Boss *boss = &game->bosses[i];
+        CellColor color = CELL_BOSS;
+        char glyph;
+
+        if (!boss->active) {
+            continue;
+        }
+
+        glyph = boss->glyph;
+        if ((game->bossStatus == BOSS_STATUS_SHIELDED ||
+             game->bossStatus == BOSS_STATUS_CLONES) &&
+            i != game->trueBossIndex) {
+            color = CELL_BOSS;
+        } else if (i == game->trueBossIndex ||
+                   game->bossStatus == BOSS_STATUS_FINAL_DAMAGE ||
+                   game->bossStatus == BOSS_STATUS_VULNERABLE) {
+            color = CELL_BOSS_TRUE;
+        }
+        if (i == game->trueBossIndex &&
+            game->bossFlashTimer > 0.0f &&
+            ((int)(game->bossFlashTimer * 8.0f) % 2) == 0) {
+            glyph = '!';
+            color = CELL_PROJECTILE;
+        }
+        if (game->bossStatus == BOSS_STATUS_SHIELDED) {
+            color = CELL_AURA;
+        }
+
+        PutCell(game, grid, GameRound(boss->position.x), GameRound(boss->position.y), glyph, color);
+    }
+
+    if (game->activeMiniEvent == MINI_EVENT_BLOOD_MIST) {
+        const int playerX = GameRound(game->player.position.x);
+        const int playerY = GameRound(game->player.position.y);
+
+        for (int y = 1; y < game->mapHeight - 1; y++) {
+            for (int x = 1; x < game->mapWidth - 1; x++) {
+                if (abs(x - playerX) <= 1 && abs(y - playerY) <= 1) {
+                    continue;
+                }
+                if (((x * 17 + y * 31 + (int)(game->elapsed * 10.0f)) % 11) < 4) {
+                    PutCell(game, grid, x, y, '~', CELL_ENEMY_HIGH);
+                }
+            }
+        }
     }
 
     if (game->player.shieldTimer > 0.0f) {
@@ -199,7 +341,7 @@ void UiDrawTitle(void)
     printf("\033[0m\n");
     printf("터미널 생존 게임입니다.\n\n");
     printf("\033[1;37m목표\033[0m\n");
-    printf("  10분을 생존하세요. HP가 0이 되면 게임이 종료됩니다.\n\n");
+    printf("  3~5분 묘지 생존 뒤 시작맵 지형의 보스전을 돌파하고 최종 보스를 처치하세요.\n\n");
     printf("\033[1;37m조작\033[0m\n");
     printf("  WASD / 방향키       : 이동\n");
     printf("  1, 2, 3 또는 Enter  : 레벨업 보상 선택\n");
@@ -280,20 +422,144 @@ void UiDrawNameInput(const Game *game, const char *name, int nameLen)
     EndFrame();
 }
 
+static const char *BossPhaseText(BossPhase phase)
+{
+    switch (phase) {
+        case BOSS_PHASE_ONE:
+            return "1페이즈";
+        case BOSS_PHASE_TWO:
+            return "2페이즈";
+        case BOSS_PHASE_NONE:
+        default:
+            return "없음";
+    }
+}
+
+static const char *BossStatusText(BossStatus status)
+{
+    switch (status) {
+        case BOSS_STATUS_SHIELDED:
+            return "보호막";
+        case BOSS_STATUS_VULNERABLE:
+            return "공격 가능";
+        case BOSS_STATUS_CLONES:
+            return "분신";
+        case BOSS_STATUS_FINAL_DAMAGE:
+            return "최종 딜타임";
+        case BOSS_STATUS_DEFEATED:
+            return "처치됨";
+        case BOSS_STATUS_NONE:
+        default:
+            return "대기";
+    }
+}
+
+static void PrintBossSequenceGoal(const Game *game)
+{
+    printf("목표: ");
+    for (int i = 0; i < BOSS_SEQUENCE_LEN; i++) {
+        const int altarIndex = game->bossSequence[i];
+        putchar(game->bossAltarGlyphs[altarIndex]);
+        if (i + 1 < BOSS_SEQUENCE_LEN) {
+            putchar(' ');
+        }
+    }
+    printf(" 순서대로 제단을 밟으세요\033[K\n");
+
+    printf("입력: ");
+    for (int i = 0; i < BOSS_SEQUENCE_LEN; i++) {
+        if (i < game->bossSequenceProgress) {
+            putchar(game->bossAltarGlyphs[game->bossSequence[i]]);
+        } else {
+            putchar('_');
+        }
+        if (i + 1 < BOSS_SEQUENCE_LEN) {
+            putchar(' ');
+        }
+    }
+    printf("\033[K\n");
+}
+
+static void DrawBossPanel(const Game *game)
+{
+    if (game->bossPhase == BOSS_PHASE_NONE &&
+        game->bossStatus != BOSS_STATUS_DEFEATED) {
+        return;
+    }
+
+    printf("\033[1;35m보스\033[0m: %s / %s",
+        BossPhaseText(game->bossPhase),
+        BossStatusText(game->bossStatus));
+    if ((game->bossStatus == BOSS_STATUS_VULNERABLE ||
+         game->bossStatus == BOSS_STATUS_FINAL_DAMAGE) &&
+        game->trueBossIndex >= 0 &&
+        game->trueBossIndex < game->bossCount) {
+        const Boss *boss = &game->bosses[game->trueBossIndex];
+        printf("  HP %d/%d", boss->health, boss->maxHealth);
+    } else if (game->bossPhase == BOSS_PHASE_ONE && game->bossCount > 0) {
+        printf("  HP %d/%d", game->bosses[0].health, game->bosses[0].maxHealth);
+    }
+    printf("\033[K\n");
+
+    if (game->bossPuzzle == BOSS_PUZZLE_SEQUENCE) {
+        PrintBossSequenceGoal(game);
+    } else if (game->bossPuzzle == BOSS_PUZZLE_ORB) {
+        printf("목표: 피의 구슬 O를 중앙 제단 A로 운반하세요\033[K\n");
+        printf("진행: %d/3 운반  %s\033[K\n",
+            game->bossOrbDeliveries,
+            game->bossOrbCarried ? "구슬 소지(이동속도 감소)" : "구슬 미소지");
+    } else if (game->bossPuzzle == BOSS_PUZZLE_SEAL) {
+        printf("목표: 진짜 보스가 있는 제단과 다른 A를 밟아 봉인하세요\033[K\n");
+        printf("진행: 봉인 %d/3  진짜 교체 %.1fs  제단 재배치 %.1fs\033[K\n",
+            game->bossSealCount,
+            game->bossTrueSwapTimer,
+            game->bossSealRelocateTimer);
+    } else if (game->bossStatus == BOSS_STATUS_FINAL_DAMAGE) {
+        printf("목표: 가짜는 사라졌습니다. 진짜 보스를 처치하세요\033[K\n");
+        printf("진행: 최종 딜타임\033[K\n");
+    } else {
+        printf("목표: 보스 패턴을 회피하며 다음 기믹을 기다리세요\033[K\n");
+        printf("진행: -\033[K\n");
+    }
+
+    printf("특수: ");
+    if (game->bossShadowActive) {
+        printf("그림자 활성 %.1fs  ", game->bossShadowTimer);
+    } else {
+        printf("그림자 대기  ");
+    }
+    if (game->bossForbiddenTimer > 0.0f && game->bossForbiddenKey != '\0') {
+        printf("%c 방향 금지 %.1fs", game->bossForbiddenKey, game->bossForbiddenTimer);
+    } else {
+        printf("방향 금지 없음");
+    }
+    printf("\033[K\n");
+}
+
+static bool BossPanelVisible(const Game *game)
+{
+    return game->bossPhase != BOSS_PHASE_NONE ||
+        game->bossStatus == BOSS_STATUS_DEFEATED;
+}
+
 
 void UiDrawGame(const Game *game)
 {
     Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH];
     const int seconds = (int)game->elapsed;
-    const int remaining = (int)SURVIVAL_SECONDS - seconds;
 
     BuildGrid(game, grid);
     BeginFrame();
 
     printf("\033[1;36mTerminal Survivors\033[0m  ");
     printf("Mode %s  ", GameDifficultyName(game->difficulty));
-    printf("Time %02d:%02d / 10:00  ", seconds / 60, seconds % 60);
-    printf("Remain %02d:%02d  ", remaining / 60, remaining % 60);
+    if (game->mapPhase == MAP_PHASE_GRAVEYARD) {
+        printf("\033[1;31mGRAVEYARD\033[0m  ");
+    } else if (game->mapPhase == MAP_PHASE_BOSS_ARENA) {
+        printf("\033[1;35mBOSS ARENA\033[0m  ");
+    }
+    printf("Time %02d:%02d  ", seconds / 60, seconds % 60);
+    printf("Goal 최종 보스 처치  ");
     printf("Kills %d  Score %d\n", game->player.kills, game->player.score);
 
     DrawBar("HP", game->player.health, game->player.maxHealth, 18, "\033[1;31m");
@@ -319,6 +585,14 @@ void UiDrawGame(const Game *game)
         if (game->player.moveSpeedMult > 1.0f) {
             printf("  \033[1;32m이동속도x%.1f\033[0m", game->player.moveSpeedMult);
         }
+        if (game->frenzyTimer > 0.0f) {
+            printf("  \033[1;35m폭주탄창 %.1fs\033[0m", game->frenzyTimer);
+        }
+        if (game->activeMiniEvent == MINI_EVENT_BLOOD_MIST) {
+            printf("  \033[1;31m피의안개 %.1fs\033[0m", game->miniEventTimer);
+        } else if (game->activeMiniEvent == MINI_EVENT_BAT_STORM) {
+            printf("  \033[1;31m박쥐폭풍\033[0m");
+        }
         /* 패시브 아이템 표시 */
         if (game->player.hpRecoveryLevel > 0) {
             printf("  \033[1;31m❤Lv%d\033[0m", game->player.hpRecoveryLevel);
@@ -335,7 +609,18 @@ void UiDrawGame(const Game *game)
                "\033[38;5;208mG\033[0m 좀비  \033[1;35mV\033[0m 뱀파이어  "
                "\033[1;33mo\033[0m 원형  \033[1;33m^\033[0m 삼각형  "
                "\033[1;33m+\033[0m 사각형  \033[1;33m*\033[0m 별  "
-               "\033[1;34m@\033[0m 방패무적  \033[1;32m+\033[0m XP\n\n");
+               "\033[1;34m@\033[0m 방패무적  \033[1;32m+\033[0m XP  "
+               "\033[1;31mH\033[0m 구급상자  "
+               "\033[1;35mM\033[0m 진공  \033[1;35mR\033[0m 로자리  "
+               "\033[1;35m?\033[0m 주사위  \033[1;35mB\033[0m 폭주탄창  "
+               "\033[1;35mC\033[0m 보물상자\n");
+        if (BossPanelVisible(game)) {
+            printf("Boss Legend: \033[1;35mW\033[0m 보스  "
+                   "\033[1;33m!\033[0m 진짜  \033[1;32mR/B/G/Y/A\033[0m 제단  "
+                   "\033[1;33mO\033[0m 구슬  \033[2;36m&\033[0m 그림자\n\n");
+        } else {
+            printf("\n");
+        }
         (void)weaponGlyphs;
     }
 
@@ -343,9 +628,32 @@ void UiDrawGame(const Game *game)
         DrawGridLine(grid, y, game->mapWidth);
     }
 
+    if (BossPanelVisible(game)) {
+        DrawBossPanel(game);
+    }
+    if (BossPanelVisible(game) &&
+        game->bossMessageTimer > 0.0f &&
+        game->bossMessage[0] != '\0') {
+        printf("\033[1;35m보스 메시지: %s\033[0m\033[K\n", game->bossMessage);
+    } else if (BossPanelVisible(game)) {
+        printf("\033[K\n");
+    }
+
     /* 경고 문구: 0.7초마다 깜빡임. 항상 1줄 차지해서 레이아웃 고정 */
-    if (game->speedWarningTimer > 0.0f && ((int)(game->speedWarningTimer / 0.7f) % 2) == 0) {
+    if (game->graveyardWarningTimer > 0.0f) {
+        if (game->mapPhase == MAP_PHASE_BOSS_ARENA) {
+            printf("\033[1;35m  보스 아레나로 돌아왔습니다... FINAL BOSS AWAKENS\033[0m\033[K\n");
+        } else {
+            printf("\033[1;31m  묘지가 깨어났습니다...  THE GRAVEYARD AWAKENS\033[0m\033[K\n");
+        }
+    } else if (game->diceMessageTimer > 0.0f && game->diceMessage[0] != '\0') {
+        printf("\033[1;35m  %s\033[0m\033[K\n", game->diceMessage);
+    } else if (game->speedWarningTimer > 0.0f && ((int)(game->speedWarningTimer / 0.7f) % 2) == 0) {
         printf("\033[1;31m  !! 몬스터가 더 강력해집니다! !!\033[0m\033[K\n");
+    } else if (game->miniEventMessageTimer > 0.0f && game->activeMiniEvent == MINI_EVENT_BLOOD_MIST) {
+        printf("\033[1;31m  MINI EVENT: 피의 안개! 시야가 흐려지고 적이 빨라집니다.\033[0m\033[K\n");
+    } else if (game->miniEventMessageTimer > 0.0f && game->activeMiniEvent == MINI_EVENT_BAT_STORM) {
+        printf("\033[1;31m  MINI EVENT: 박쥐 폭풍! 약한 적이 몰려옵니다.\033[0m\033[K\n");
     } else {
         printf("\033[K\n");
     }
@@ -366,7 +674,7 @@ void UiDrawGame(const Game *game)
     } else if (game->mode == GAME_MODE_GAME_OVER) {
         printf("\033[1;31mGAME OVER\033[0m  HP가 0이 됐습니다.  R 재시작  B/Esc 타이틀\033[K\n");
     } else if (game->mode == GAME_MODE_VICTORY) {
-        printf("\033[1;32mVICTORY\033[0m  10분을 생존했습니다!  R 재시작  B/Esc 타이틀\033[K\n");
+        printf("\033[1;32mVICTORY\033[0m  최종 보스를 처치했습니다!  R 재시작  B/Esc 타이틀\033[K\n");
     } else {
         printf("이동으로 회피하세요. 공격은 자동입니다.  Esc 일시정지  Q 게임종료  M 사운드\033[K\n");
     }
@@ -374,36 +682,49 @@ void UiDrawGame(const Game *game)
     EndFrame();
 }
 
+PlatformSound UiSoundEvent(unsigned int flags)
+{
+    if ((flags & SOUND_UI_MOVE) != 0u) {
+        return PLATFORM_SOUND_UI_MOVE;
+    }
+    if ((flags & SOUND_UI_CONFIRM) != 0u) {
+        return PLATFORM_SOUND_UI_CONFIRM;
+    }
+    if ((flags & SOUND_SHOOT) != 0u) {
+        return PLATFORM_SOUND_SHOOT;
+    }
+    if ((flags & SOUND_XP_PICKUP) != 0u) {
+        return PLATFORM_SOUND_XP_PICKUP;
+    }
+    if ((flags & SOUND_HEAL_PICKUP) != 0u) {
+        return PLATFORM_SOUND_HEAL_PICKUP;
+    }
+    if ((flags & SOUND_POWER_PICKUP) != 0u) {
+        return PLATFORM_SOUND_POWER_PICKUP;
+    }
+    if ((flags & SOUND_LEVEL_UP) != 0u) {
+        return PLATFORM_SOUND_LEVEL_UP;
+    }
+    if ((flags & SOUND_HIT) != 0u) {
+        return PLATFORM_SOUND_HIT;
+    }
+    if ((flags & SOUND_GAME_OVER) != 0u) {
+        return PLATFORM_SOUND_GAME_OVER;
+    }
+    if ((flags & SOUND_VICTORY) != 0u) {
+        return PLATFORM_SOUND_VICTORY;
+    }
+
+    return PLATFORM_SOUND_NONE;
+}
+
 void UiPlaySounds(unsigned int flags, bool enabled)
 {
-    int count = 0;
+    const PlatformSound sound = UiSoundEvent(flags);
 
-    if (!enabled || flags == 0u) {
+    if (!enabled || sound == PLATFORM_SOUND_NONE) {
         return;
     }
 
-    if ((flags & SOUND_ATTACK) != 0u) {
-        count += 1;
-    }
-    if ((flags & SOUND_XP) != 0u) {
-        count += 2;
-    }
-    if ((flags & SOUND_LEVEL_UP) != 0u) {
-        count += 3;
-    }
-    if ((flags & SOUND_HIT) != 0u) {
-        count += 2;
-    }
-    if ((flags & SOUND_GAME_OVER) != 0u || (flags & SOUND_VICTORY) != 0u) {
-        count += 4;
-    }
-
-    if (count > 5) {
-        count = 5;
-    }
-
-    for (int i = 0; i < count; i++) {
-        putchar('\a');
-    }
-    fflush(stdout);
+    PlatformPlaySound(sound);
 }

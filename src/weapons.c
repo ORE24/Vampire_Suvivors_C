@@ -1,6 +1,7 @@
 #include "game.h"
 
 #include <math.h>
+#include <stdlib.h>
 
 #define PI 3.14159265358979323846f
 
@@ -33,6 +34,33 @@ static int FindNearestEnemy(const Game *game, int range)
     return nearest;
 }
 
+static bool FindNearestTargetPosition(const Game *game, int range, Vec2 *position)
+{
+    const int enemyIndex = FindNearestEnemy(game, range);
+    Vec2 bossPosition;
+    bool hasEnemy = false;
+    bool hasBoss = GameBossTargetPosition(game, &bossPosition, range);
+
+    if (position == NULL) {
+        return false;
+    }
+
+    if (enemyIndex >= 0) {
+        *position = game->enemies[enemyIndex].position;
+        hasEnemy = true;
+    }
+
+    if (hasBoss &&
+        (!hasEnemy ||
+         GameDistanceSquared(game->player.position, bossPosition) <
+         GameDistanceSquared(game->player.position, *position))) {
+        *position = bossPosition;
+        return true;
+    }
+
+    return hasEnemy;
+}
+
 static void SpawnProjectile(Game *game, const Weapon *weapon, Vec2 direction, float speed, float lifetime, int pierce)
 {
     for (int i = 0; i < MAX_PROJECTILES; i++) {
@@ -51,6 +79,23 @@ static void SpawnProjectile(Game *game, const Weapon *weapon, Vec2 direction, fl
         projectile->glyph = weapon->glyph;
         return;
     }
+}
+
+static float RandomAngle(void)
+{
+    return ((float)rand() / (float)RAND_MAX) * 2.0f * PI;
+}
+
+static void FireFrenzyBurst(Game *game, Weapon *weapon)
+{
+    const int shots = 5;
+
+    for (int i = 0; i < shots; i++) {
+        const float angle = RandomAngle();
+        SpawnProjectile(game, weapon, (Vec2){cosf(angle), sinf(angle)}, 15.0f, 1.15f, 1);
+    }
+
+    GameRequestSound(game, SOUND_SHOOT);
 }
 
 static bool ProjectilePathHitsWall(const Game *game, Vec2 from, Vec2 to)
@@ -82,33 +127,33 @@ static bool ProjectilePathHitsWall(const Game *game, Vec2 from, Vec2 to)
 /* ○ 원형: 가장 가까운 적에게 1발 조준 발사 (Dmg20, 쿨1.0s) */
 static void FireCircle(Game *game, Weapon *weapon)
 {
-    const int targetIndex = FindNearestEnemy(game, weapon->range);
+    Vec2 targetPosition;
     Vec2 direction;
 
-    if (targetIndex < 0) {
+    if (!FindNearestTargetPosition(game, weapon->range, &targetPosition)) {
         return;
     }
 
-    direction.x = game->enemies[targetIndex].position.x - game->player.position.x;
-    direction.y = game->enemies[targetIndex].position.y - game->player.position.y;
+    direction.x = targetPosition.x - game->player.position.x;
+    direction.y = targetPosition.y - game->player.position.y;
     SpawnProjectile(game, weapon, direction, 13.0f, 1.8f, 1);
-    GameRequestSound(game, SOUND_ATTACK);
+    GameRequestSound(game, SOUND_SHOOT);
 }
 
 /* △ 삼각형: 가장 가까운 적 방향으로 3발 부채꼴 발사 (Dmg8 x3, 쿨0.4s) */
 static void FireTriangle(Game *game, Weapon *weapon)
 {
-    const int targetIndex = FindNearestEnemy(game, weapon->range);
+    Vec2 targetPosition;
     Vec2 direction;
     float baseAngle;
     int i;
 
-    if (targetIndex < 0) {
+    if (!FindNearestTargetPosition(game, weapon->range, &targetPosition)) {
         return;
     }
 
-    direction.x = game->enemies[targetIndex].position.x - game->player.position.x;
-    direction.y = game->enemies[targetIndex].position.y - game->player.position.y;
+    direction.x = targetPosition.x - game->player.position.x;
+    direction.y = targetPosition.y - game->player.position.y;
     direction = GameNormalize(direction);
     baseAngle = atan2f(direction.y, direction.x);
 
@@ -118,7 +163,7 @@ static void FireTriangle(Game *game, Weapon *weapon)
         SpawnProjectile(game, weapon, (Vec2){cosf(angle), sinf(angle)}, 13.0f, 1.8f, 1);
     }
 
-    GameRequestSound(game, SOUND_ATTACK);
+    GameRequestSound(game, SOUND_SHOOT);
 }
 
 /* □ 사각형: 상하좌우 4방향 동시 발사 (Dmg15 x4, 쿨1.0s) */
@@ -136,23 +181,23 @@ static void FireSquare(Game *game, Weapon *weapon)
         SpawnProjectile(game, weapon, dirs[i], 13.0f, 1.8f, 1);
     }
 
-    GameRequestSound(game, SOUND_ATTACK);
+    GameRequestSound(game, SOUND_SHOOT);
 }
 
 /* ★ 별: 가장 가까운 적에게 강타 1발 (Dmg40, 쿨2.0s) */
 static void FireStar(Game *game, Weapon *weapon)
 {
-    const int targetIndex = FindNearestEnemy(game, weapon->range);
+    Vec2 targetPosition;
     Vec2 direction;
 
-    if (targetIndex < 0) {
+    if (!FindNearestTargetPosition(game, weapon->range, &targetPosition)) {
         return;
     }
 
-    direction.x = game->enemies[targetIndex].position.x - game->player.position.x;
-    direction.y = game->enemies[targetIndex].position.y - game->player.position.y;
+    direction.x = targetPosition.x - game->player.position.x;
+    direction.y = targetPosition.y - game->player.position.y;
     SpawnProjectile(game, weapon, direction, 13.0f, 1.8f, 1);
-    GameRequestSound(game, SOUND_ATTACK);
+    GameRequestSound(game, SOUND_SHOOT);
 }
 
 /* 현재 장착 무기만 발사 (PPT: 무기는 항상 1개) */
@@ -163,6 +208,21 @@ void WeaponsUpdate(Game *game, float dt)
     const float effectiveCooldown = (game->player.attackSpeedMult > 0.0f)
         ? weapon->cooldown / game->player.attackSpeedMult
         : weapon->cooldown;
+
+    if (game->frenzyTimer > 0.0f) {
+        game->frenzyTimer -= dt;
+        if (game->frenzyTimer < 0.0f) {
+            game->frenzyTimer = 0.0f;
+        }
+
+        game->frenzyShotTimer -= dt;
+        while (game->frenzyShotTimer <= 0.0f && game->frenzyTimer > 0.0f) {
+            FireFrenzyBurst(game, weapon);
+            game->frenzyShotTimer += 0.08f;
+        }
+        weapon->timer = effectiveCooldown;
+        return;
+    }
 
     weapon->timer -= dt;
     if (weapon->timer <= 0.0f) {
@@ -219,6 +279,10 @@ void CombatResolve(Game *game)
             continue;
         }
 
+        if (GameBossApplyProjectileHit(game, projectile) && !projectile->active) {
+            continue;
+        }
+
         for (int enemyIndex = 0; enemyIndex < MAX_ENEMIES; enemyIndex++) {
             Enemy *enemy = &game->enemies[enemyIndex];
 
@@ -237,10 +301,7 @@ void CombatResolve(Game *game)
             }
 
             if (enemy->health <= 0) {
-                PickupSpawn(game, enemy->position, enemy->xpValue);
-                game->player.score += enemy->scoreValue;
-                game->player.kills++;
-                enemy->active = false;
+                EnemyDefeat(game, enemy);
             }
             break;
         }
