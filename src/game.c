@@ -7,66 +7,122 @@
 
 static const char *SCORE_FILE = "scores.txt";
 
-/* PPT 무기 이름/설명 (교체 선택지용) */
+/* 무기 교체 선택지 이름/설명 */
 static const char *WEAPON_SWITCH_NAMES[WEAPON_COUNT] = {
-    "무기교체:원형(○)", "무기교체:삼각형(△)", "무기교체:사각형(□)", "무기교체:별(★)"
+    "무기 교체 : 피의 고리",
+    "무기 교체 : 혼돈의 살점",
+    "무기 교체 : 십자 저주",
+    "무기 교체 : 부패한 혜성"
 };
 static const char *WEAPON_SWITCH_DESCS[WEAPON_COUNT] = {
-    "Dmg20 1발조준 쿨1.0s", "Dmg8 3발부채꼴 쿨0.4s",
-    "Dmg15 4방향 쿨1.0s",   "Dmg40 1발강타 쿨2.0s"
+    "DMG 20, 궤도 10개 회전 타격",
+    "DMG 4, 공격속도 2.5, 3발 부채꼴",
+    "DMG 10, 공격속도 1, 4방향",
+    "DMG 40, 공격속도 0.5, 1발 강타"
 };
+
+/* 레벨 기반으로 무기 스탯 재계산 */
+static void ApplyWeaponLevelStats(Game *game, WeaponType type)
+{
+    Weapon *w = &game->weapons[type];
+    switch (type) {
+        case WEAPON_MAGIC_BOLT:
+            w->damage         = 20 + 2 * (w->level - 1);
+            w->cooldown       = 1.0f / (1.0f + 0.5f * (float)(w->level - 1));
+            w->projectileCount = 1;
+            break;
+        case WEAPON_HOLY_AURA:
+            w->damage         = 4 + 2 * (w->level - 1);
+            w->cooldown       = 1.0f / (2.5f + 0.2f * (float)(w->level - 1));
+            w->projectileCount = (w->level >= 7) ? 5 : 3;
+            break;
+        case WEAPON_PIERCING_LANCE:
+            w->damage         = 10 + 2 * (w->level - 1);
+            w->cooldown       = 1.0f / (1.0f + 0.3f * (float)(w->level - 1));
+            w->projectileCount = (w->level >= 7) ? 8 : 4;
+            break;
+        case WEAPON_STAR_BURST:
+            w->damage         = 40 + 5 * (w->level - 1);
+            if (w->level >= 7) {
+                w->cooldown        = 0.2f;
+                w->projectileCount = 4;
+            } else {
+                w->cooldown        = 1.0f / (0.5f + 0.5f * (float)(w->level - 1));
+                w->projectileCount = 1;
+            }
+            break;
+        default:
+            break;
+    }
+}
 
 static void GenerateUpgrades(Game *game)
 {
-    /* PPT 업그레이드 6종 (kind: 0이동속도 1공격속도 2무기레벨업 3무기교체 4회복붕대 5무적방패) */
-    Weapon *aw = &game->weapons[game->activeWeapon];
-    WeaponType switchTarget = (WeaponType)((game->activeWeapon + 1 +
-        rand() % (WEAPON_COUNT - 1)) % WEAPON_COUNT);
+    /* 풀 8종: 4무기(교체+레벨업) + 이동속도 + 공격속도 + 회복붕대 + 무적방패 */
+    static char descC[80], descT[80], descS[80], descSt[80];
+    const Weapon *wC  = &game->weapons[WEAPON_MAGIC_BOLT];
+    const Weapon *wT  = &game->weapons[WEAPON_HOLY_AURA];
+    const Weapon *wS  = &game->weapons[WEAPON_PIERCING_LANCE];
+    const Weapon *wSt = &game->weapons[WEAPON_STAR_BURST];
 
-    const UpgradeOption pool[6] = {
-        {"이동속도 증가",  "이동 속도 +20% (교체 후 유지)", WEAPON_COUNT,  0},
-        {"공격속도 증가",  "공격 속도 +20% (교체 후 유지)", WEAPON_COUNT,  1},
-        {"무기 레벨업",
-            aw->level < 3 ? "현재 무기 데미지/사거리 +30%" : "이미 최대 레벨(Lv.3)",
-            game->activeWeapon, 2},
-        {WEAPON_SWITCH_NAMES[switchTarget], WEAPON_SWITCH_DESCS[switchTarget],
-            switchTarget, 3},
-        {"회복의 붕대",   "HP 자동 회복 패시브 (레벨업 가능)", WEAPON_COUNT, 4},
-        {"무적의 방패",   "15초 무적 자동 발동 (레벨업 가능)", WEAPON_COUNT, 5}
+    if (wC->level == 0)
+        snprintf(descC,  sizeof(descC),  "궤도 10개 회전 타격 [처음 획득]");
+    else if (wC->level < 7)
+        snprintf(descC,  sizeof(descC),  "Lv.%d->%d: DMG+2, 공격속도+0.5", wC->level, wC->level + 1);
+    else
+        snprintf(descC,  sizeof(descC),  "만랩 Lv.7");
+
+    if (wT->level == 0)
+        snprintf(descT,  sizeof(descT),  "DMG 4, 공격속도 2.5, 3발 부채꼴 [처음 획득]");
+    else if (wT->level < 7)
+        snprintf(descT,  sizeof(descT),  "Lv.%d->%d: DMG+2, 공격속도+0.2 (Lv7: 5발)", wT->level, wT->level + 1);
+    else
+        snprintf(descT,  sizeof(descT),  "만랩 Lv.7: 5발 부채꼴");
+
+    if (wS->level == 0)
+        snprintf(descS,  sizeof(descS),  "DMG 10, 공격속도 1, 4방향 [처음 획득]");
+    else if (wS->level < 7)
+        snprintf(descS,  sizeof(descS),  "Lv.%d->%d: DMG+2, 공격속도+0.3 (Lv7: 8방향)", wS->level, wS->level + 1);
+    else
+        snprintf(descS,  sizeof(descS),  "만랩 Lv.7: 4방향 각 2발");
+
+    if (wSt->level == 0)
+        snprintf(descSt, sizeof(descSt), "DMG 40, 공격속도 0.5, 1발 강타 [처음 획득]");
+    else if (wSt->level < 7)
+        snprintf(descSt, sizeof(descSt), "Lv.%d->%d: DMG+5, 공격속도+0.5 (Lv7: 3발x3연사)", wSt->level, wSt->level + 1);
+    else
+        snprintf(descSt, sizeof(descSt), "만랩 Lv.7: 3발 부채꼴 x3연사");
+
+    const UpgradeOption pool[8] = {
+        {"이동속도 증가",  "이동속도 +20%",   WEAPON_COUNT,           0},
+        {"공격속도 증가",  "공격속도 +10%",   WEAPON_COUNT,           1},
+        {"피의 고리",      descC,             WEAPON_MAGIC_BOLT,      2},
+        {"혼돈의 살점",    descT,             WEAPON_HOLY_AURA,       3},
+        {"십자 저주",      descS,             WEAPON_PIERCING_LANCE,  4},
+        {"부패한 혜성",    descSt,            WEAPON_STAR_BURST,      5},
+        {"회복의 붕대",
+            game->player.hpRecoveryLevel > 0
+                ? "이미 활성 중"
+                : "180초간 활성: 20킬마다 HP+1, 만료 시 소멸",
+            WEAPON_COUNT, 6},
+        {"무적의 방패",
+            game->player.shieldTimer > 0.0f
+                ? "방패 활성 중"
+                : "5회 방어 or 20초 후 화면 몬스터 전멸  \033[1;31m감히 나를 부순 자들이여, 함께 소멸하라",
+            WEAPON_COUNT, 7}
     };
 
-    bool used[6] = {false, false, false, false, false, false};
+    bool used[8] = {false, false, false, false, false, false, false, false};
 
     for (int i = 0; i < UPGRADE_CHOICES; i++) {
-        int optionIndex = rand() % 6;
+        int optionIndex = rand() % 8;
         while (used[optionIndex]) {
-            optionIndex = (optionIndex + 1) % 6;
+            optionIndex = (optionIndex + 1) % 8;
         }
         used[optionIndex] = true;
         game->upgrades[i] = pool[optionIndex];
     }
     game->selectedUpgrade = 0;
-}
-
-/* 무기 교체 시 초기 스펙으로 리셋 */
-static void ResetWeaponToBase(Game *game, WeaponType type)
-{
-    switch (type) {
-        case WEAPON_MAGIC_BOLT:
-            game->weapons[type] = (Weapon){type, 1, 20, 1, 18, 0.60f, 0.0f, 'o'};
-            break;
-        case WEAPON_HOLY_AURA:
-            game->weapons[type] = (Weapon){type, 1,  8, 3, 18, 0.25f, 0.0f, '^'};
-            break;
-        case WEAPON_PIERCING_LANCE:
-            game->weapons[type] = (Weapon){type, 1, 15, 4, 18, 0.65f, 0.0f, '+'};
-            break;
-        case WEAPON_STAR_BURST:
-            game->weapons[type] = (Weapon){type, 1, 40, 1, 14, 1.40f, 0.0f, '*'};
-            break;
-        default:
-            break;
-    }
 }
 
 float GameDistanceSquared(Vec2 a, Vec2 b)
@@ -224,18 +280,21 @@ void GameInit(Game *game, GameDifficulty difficulty)
     /* 패시브 아이템 초기화 */
     game->player.hpRecoveryLevel = 0;
     game->player.hpRecoveryTimer = 0.0f;
+    game->player.bandageKillCount = 0;
     game->player.shieldLevel = 0;
     game->player.shieldTimer = 0.0f;
     game->player.shieldCooldown = 0.0f;
+    game->player.shieldHits = 0;
+    game->shieldBreakTimer = 0.0f;
     game->player.attackSpeedMult = 1.0f;
     game->player.moveSpeedMult = 1.0f;
 
-    /* PPT 기반 무기 초기 스펙 (쿨타임 조정: 좀 더 빠르게) */
-    game->activeWeapon = WEAPON_MAGIC_BOLT;   /* 시작 무기: 원형(○) */
-    game->weapons[WEAPON_MAGIC_BOLT]    = (Weapon){WEAPON_MAGIC_BOLT,    1, 20, 1, 18, 0.60f, 0.0f, 'o'};
-    game->weapons[WEAPON_HOLY_AURA]     = (Weapon){WEAPON_HOLY_AURA,     1,  8, 3, 18, 0.25f, 0.0f, '^'};
-    game->weapons[WEAPON_PIERCING_LANCE]= (Weapon){WEAPON_PIERCING_LANCE,1, 15, 4, 18, 0.65f, 0.0f, '+'};
-    game->weapons[WEAPON_STAR_BURST]    = (Weapon){WEAPON_STAR_BURST,    1, 40, 1, 14, 1.40f, 0.0f, '*'};
+    /* 시작 무기: 피의 고리 Lv.1, 나머지는 미획득(Lv.0) */
+    game->activeWeapon = WEAPON_MAGIC_BOLT;
+    game->weapons[WEAPON_MAGIC_BOLT]    = (Weapon){WEAPON_MAGIC_BOLT,    1, 20, 1, 18, 1.00f, 0.0f, 'o'};
+    game->weapons[WEAPON_HOLY_AURA]     = (Weapon){WEAPON_HOLY_AURA,     0,  4, 3, 18, 0.40f, 0.0f, '^'};
+    game->weapons[WEAPON_PIERCING_LANCE]= (Weapon){WEAPON_PIERCING_LANCE,0, 10, 4, 18, 1.00f, 0.0f, '+'};
+    game->weapons[WEAPON_STAR_BURST]    = (Weapon){WEAPON_STAR_BURST,    0, 40, 1, 14, 2.00f, 0.0f, '*'};
 
     game->elapsed = 0.0f;
     game->speedWarningTimer = 0.0f;
@@ -267,8 +326,6 @@ void GameInit(Game *game, GameDifficulty difficulty)
 void GameApplyUpgrade(Game *game, int index)
 {
     UpgradeOption *upgrade;
-    static const float hpIntervals[4]    = {0.0f, 30.0f, 20.0f, 15.0f};
-    static const float shieldCooldowns[4]= {0.0f,120.0f, 90.0f, 60.0f};
 
     if (index < 0 || index >= UPGRADE_CHOICES) {
         return;
@@ -277,38 +334,36 @@ void GameApplyUpgrade(Game *game, int index)
     upgrade = &game->upgrades[index];
 
     switch (upgrade->kind) {
-        case 0: /* 이동속도 증가 */
+        case 0: /* 이동속도 +20% */
             game->player.moveSpeedMult *= 1.2f;
             break;
-        case 1: /* 공격속도 증가 */
-            game->player.attackSpeedMult *= 1.2f;
+        case 1: /* 공격속도 +10% */
+            game->player.attackSpeedMult *= 1.1f;
             break;
-        case 2: /* 무기 레벨업 (최대 Lv.3) */
+        case 2: /* 피의 고리 — 선택 시 교체 + 레벨업 */
+        case 3: /* 혼돈의 살점 */
+        case 4: /* 십자 저주 */
+        case 5: /* 부패한 혜성 */
             {
-                Weapon *weapon = &game->weapons[game->activeWeapon];
-                if (weapon->level < 3) {
-                    weapon->level++;
-                    weapon->damage = (int)((float)weapon->damage * 1.30f + 0.5f);
-                    weapon->range  = (int)((float)weapon->range  * 1.20f + 0.5f);
-                }
+                WeaponType wt = upgrade->weapon;
+                Weapon *w = &game->weapons[wt];
+                if (w->level < 7) w->level++;
+                ApplyWeaponLevelStats(game, wt);
+                game->activeWeapon = wt;
             }
             break;
-        case 3: /* 무기 교체 */
-            game->activeWeapon = upgrade->weapon;
-            ResetWeaponToBase(game, upgrade->weapon);
-            break;
-        case 4: /* 회복의 붕대 */
-            if (game->player.hpRecoveryLevel < 3) {
-                game->player.hpRecoveryLevel++;
-                game->player.hpRecoveryTimer =
-                    hpIntervals[game->player.hpRecoveryLevel];
+        case 6: /* 회복의 붕대 (일회성 획득) */
+            if (game->player.hpRecoveryLevel == 0) {
+                game->player.hpRecoveryLevel = 1;
+                game->player.bandageKillCount = 0;
+                game->player.hpRecoveryTimer = 0.0f;
             }
             break;
-        case 5: /* 무적의 방패 */
-            if (game->player.shieldLevel < 3) {
-                game->player.shieldLevel++;
-                game->player.shieldCooldown =
-                    shieldCooldowns[game->player.shieldLevel];
+        case 7: /* 무적의 방패: 5회 방어 또는 20초 후 화면 전멸 */
+            if (game->player.shieldTimer <= 0.0f) {
+                game->player.shieldTimer = 20.0f;
+                game->player.shieldHits  = 5;
+                game->auraPulseTimer = 0.22f;
             }
             break;
         default:
@@ -322,6 +377,12 @@ void GameUpdate(Game *game, const InputState *input, float dt)
 {
     if (game->mode == GAME_MODE_GAME_OVER || game->mode == GAME_MODE_VICTORY) {
         return;
+    }
+
+    /* 테스트: = 키로 레벨업 보상 강제 트리거 */
+    if (input->typedChar == '=' && game->mode == GAME_MODE_PLAYING) {
+        GenerateUpgrades(game);
+        game->mode = GAME_MODE_LEVEL_UP;
     }
 
     if (input->pauseToggle && game->mode == GAME_MODE_PLAYING) {
@@ -394,6 +455,13 @@ void GameUpdate(Game *game, const InputState *input, float dt)
         game->auraPulseTimer -= dt;
         if (game->auraPulseTimer < 0.0f) {
             game->auraPulseTimer = 0.0f;
+        }
+    }
+
+    if (game->shieldBreakTimer > 0.0f) {
+        game->shieldBreakTimer -= dt;
+        if (game->shieldBreakTimer < 0.0f) {
+            game->shieldBreakTimer = 0.0f;
         }
     }
 

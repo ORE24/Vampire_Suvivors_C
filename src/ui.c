@@ -13,7 +13,8 @@ typedef enum CellColor {
     CELL_PROJECTILE,
     CELL_XP,
     CELL_AURA,
-    CELL_TEXT
+    CELL_TEXT,
+    CELL_BLOOD
 } CellColor;
 
 typedef struct Cell {
@@ -44,6 +45,8 @@ static const char *ColorCode(CellColor color)
             return "\033[1;34m";
         case CELL_TEXT:
             return "\033[1;37m";
+        case CELL_BLOOD:
+            return "\033[38;5;196m";
     }
 
     return "\033[0m";
@@ -112,6 +115,19 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
         }
     }
 
+    if (game->shieldBreakTimer > 0.0f) {
+        /* 방패 폭발: 맵 전체 바닥 타일을 깜빡이는 * 로 덮음 */
+        if (((int)(game->shieldBreakTimer * 8.0f) % 2) == 0) {
+            for (int y = 0; y < game->mapHeight; y++) {
+                for (int x = 0; x < game->mapWidth; x++) {
+                    if (!GameMapIsBlocked(game, x, y)) {
+                        PutCell(game, grid, x, y, '*', CELL_AURA);
+                    }
+                }
+            }
+        }
+    }
+
     if (game->auraPulseTimer > 0.0f) {
         const int centerX = GameRound(game->player.position.x);
         const int centerY = GameRound(game->player.position.y);
@@ -139,7 +155,8 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
     for (int i = 0; i < MAX_PROJECTILES; i++) {
         const Projectile *projectile = &game->projectiles[i];
         if (projectile->active) {
-            PutCell(game, grid, GameRound(projectile->position.x), GameRound(projectile->position.y), projectile->glyph, CELL_PROJECTILE);
+            PutCell(game, grid, GameRound(projectile->position.x), GameRound(projectile->position.y), projectile->glyph,
+                projectile->glyph == 'o' ? CELL_BLOOD : CELL_PROJECTILE);
         }
     }
 
@@ -291,59 +308,53 @@ void UiDrawGame(const Game *game)
     BeginFrame();
 
     printf("\033[1;36mTerminal Survivors\033[0m  ");
-    printf("Mode %s  ", GameDifficultyName(game->difficulty));
+    printf("[%s]  ", GameDifficultyName(game->difficulty));
     printf("Time %02d:%02d / 10:00  ", seconds / 60, seconds % 60);
-    printf("Remain %02d:%02d  ", remaining / 60, remaining % 60);
-    printf("Kills %d  Score %d\n", game->player.kills, game->player.score);
+    printf("Remain %02d:%02d\033[K\n", remaining / 60, remaining % 60);
+    printf("Kills %d  Score %d\033[K\n", game->player.kills, game->player.score);
 
     DrawBar("HP", game->player.health, game->player.maxHealth, 18, "\033[1;31m");
     printf("   ");
     DrawBar("XP", game->player.xp, game->player.xpToNextLevel, 18, "\033[1;32m");
-    printf("   LV %d\n", game->player.level);
+    printf("   LV %d\033[K\n", game->player.level);
 
     {
         static const char *weaponNames[WEAPON_COUNT] = {
-            "원형(○)", "삼각형(△)", "사각형(□)", "별(★)"
+            "피의 고리", "혼돈의 살점", "십자 저주", "부패한 혜성"
         };
-        static const char *weaponGlyphs[WEAPON_COUNT] = {"o", "^", "+", "*"};
         const Weapon *aw = &game->weapons[game->activeWeapon];
 
         printf("\033[1;33m무기\033[0m: %s  Lv%d  Dmg%d  CD%.2fs",
             weaponNames[game->activeWeapon], aw->level, aw->damage,
             aw->cooldown);
 
-        /* 속도 버프 표시 */
         if (game->player.attackSpeedMult > 1.0f) {
             printf("  \033[1;33m공격속도x%.1f\033[0m", game->player.attackSpeedMult);
         }
         if (game->player.moveSpeedMult > 1.0f) {
             printf("  \033[1;32m이동속도x%.1f\033[0m", game->player.moveSpeedMult);
         }
-        /* 패시브 아이템 표시 */
-        if (game->player.hpRecoveryLevel > 0) {
-            printf("  \033[1;31m❤Lv%d\033[0m", game->player.hpRecoveryLevel);
+        if (game->player.hpRecoveryLevel > 0 && game->player.hpRecoveryTimer > 0.0f) {
+            printf("  \033[1;31m[붕대 %d/20킬 %.0fs]\033[0m",
+                game->player.bandageKillCount, game->player.hpRecoveryTimer);
         }
-        if (game->player.shieldLevel > 0) {
-            if (game->player.shieldTimer > 0.0f) {
-                printf("  \033[1;34mSHIELD %.0fs\033[0m", game->player.shieldTimer);
-            } else {
-                printf("  \033[2;34m방패%.0fs후\033[0m", game->player.shieldCooldown);
-            }
+        if (game->player.shieldTimer > 0.0f) {
+            printf("  \033[1;34mSHIELD %d회 남음 / %.0fs\033[0m",
+                game->player.shieldHits, game->player.shieldTimer);
         }
         printf("\033[K\n");
-        printf("Legend: \033[1;36m@\033[0m you  \033[1;31mb\033[0m 박쥐  "
+        printf("\033[1;36m@\033[0m you  \033[1;31mb\033[0m 박쥐  "
                "\033[38;5;208mG\033[0m 좀비  \033[1;35mV\033[0m 뱀파이어  "
-               "\033[1;33mo\033[0m 원형  \033[1;33m^\033[0m 삼각형  "
-               "\033[1;33m+\033[0m 사각형  \033[1;33m*\033[0m 별  "
-               "\033[1;34m@\033[0m 방패무적  \033[1;32m+\033[0m XP\n\n");
-        (void)weaponGlyphs;
+               "\033[38;5;196mo\033[0m 피의고리  \033[1;33m^\033[0m 혼돈의살점  "
+               "\033[1;33m+\033[0m 십자저주  \033[1;33m*\033[0m 부패한혜성  "
+               "\033[1;34m@\033[0m 방패무적  \033[1;32m+\033[0m XP\033[K\n\033[K\n");
     }
 
     for (int y = 0; y < game->mapHeight; y++) {
         DrawGridLine(grid, y, game->mapWidth);
     }
 
-    /* 경고 문구: 0.7초마다 깜빡임. 항상 1줄 차지해서 레이아웃 고정 */
+    /* 경고 문구: 항상 1줄 차지 */
     if (game->speedWarningTimer > 0.0f && ((int)(game->speedWarningTimer / 0.7f) % 2) == 0) {
         printf("\033[1;31m  !! 몬스터가 더 강력해집니다! !!\033[0m\033[K\n");
     } else {

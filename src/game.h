@@ -15,7 +15,7 @@
 #define MAX_RANKINGS 5
 #define MAX_NAME_LEN 15
 
-#define SURVIVAL_SECONDS 600.0   /* PPT: 10분 */
+#define SURVIVAL_SECONDS 600.0   /* 10분 생존 목표 */
 
 typedef enum AppScreen {
     SCREEN_TITLE = 0,
@@ -98,15 +98,17 @@ typedef struct Player {
     float invulnerableTimer;
     int magnetRange;
     /* 패시브 아이템: 회복의 붕대 */
-    int hpRecoveryLevel;    /* 0=없음, 1~3=레벨 */
-    float hpRecoveryTimer;  /* 다음 회복까지 남은 시간 */
+    int hpRecoveryLevel;    /* 0=없음, 1=활성 */
+    int bandageKillCount;   /* 다음 회복까지 누적 킬 수 */
+    float hpRecoveryTimer;  /* 활성 남은 시간 (획득 시 180초, 0되면 소멸) */
     /* 패시브 아이템: 무적의 방패 */
-    int shieldLevel;        /* 0=없음, 1~3=레벨 */
+    int shieldLevel;        /* 0=없음, 1=보유 */
     float shieldTimer;      /* 남은 무적 시간 (>0 이면 무적) */
-    float shieldCooldown;   /* 다음 방패 발동까지 남은 시간 */
+    float shieldCooldown;   /* 미사용 */
     /* 속도 배율 */
-    float attackSpeedMult;  /* 1.0 = 기본, 1.2 = +20%, 1.44 = +40% */
-    float moveSpeedMult;    /* 이동속도 배율 */
+    float attackSpeedMult;
+    float moveSpeedMult;
+    int  shieldHits;  /* 남은 방어 횟수 (최대 5) */
 } Player;
 
 typedef struct Enemy {
@@ -130,6 +132,11 @@ typedef struct Projectile {
     int damage;
     float lifetime;
     int pierce;
+    int areaHit;       /* 0=단일, 1=범위(3x3) */
+    bool orbit;        /* true = 플레이어 주변 궤도 회전 */
+    float orbitAngle;  /* 현재 각도 (radians) */
+    float orbitRadius;
+    float orbitHitCooldown; /* 궤도탄 재타격 쿨타임 */
     char glyph;
 } Projectile;
 
@@ -149,6 +156,10 @@ typedef struct Weapon {
     float cooldown;
     float timer;
     char glyph;
+    /* 버스트 발사용 (부패한 혜성 Lv7) */
+    int   burstRemaining;
+    float burstTimer;
+    Vec2  burstDirection;
 } Weapon;
 
 typedef struct UpgradeOption {
@@ -168,7 +179,7 @@ typedef struct Game {
     Projectile projectiles[MAX_PROJECTILES];
     Pickup pickups[MAX_PICKUPS];
     Weapon weapons[WEAPON_COUNT];
-    WeaponType activeWeapon;    /* 현재 장착 중인 무기 (PPT: 무기 1개) */
+    WeaponType activeWeapon;    /* 현재 장착 중인 무기 */
     UpgradeOption upgrades[UPGRADE_CHOICES];
     int selectedUpgrade;
     float elapsed;
@@ -182,6 +193,7 @@ typedef struct Game {
     int midEnemyChance;
     int highEnemyChance;
     float auraPulseTimer;
+    float shieldBreakTimer;   /* >0 이면 방패 폭발 이팩트 표시 */
     float speedWarningTimer;  /* >0 이면 "몬스터 강력" 경고 표시 */
     int   lastSpeedStep;      /* 마지막으로 감지한 속도 단계 */
     unsigned int pendingSounds;
@@ -195,6 +207,21 @@ typedef struct RankingEntry {
     char result[16];
     char name[MAX_NAME_LEN + 1];
 } RankingEntry;
+
+/* 적 처치 시 공통 처리: 붕대 킬 카운트 + 힐 체크 */
+static inline void GameOnKill(Game *game)
+{
+    game->player.kills++;
+    /* 붕대 활성 중(타이머 > 0)일 때만 킬 카운트 누적 */
+    if (game->player.hpRecoveryLevel > 0 && game->player.hpRecoveryTimer > 0.0f) {
+        game->player.bandageKillCount++;
+        if (game->player.bandageKillCount >= 20) {
+            game->player.bandageKillCount = 0;
+            if (game->player.health < game->player.maxHealth)
+                game->player.health++;
+        }
+    }
+}
 
 float GameDistanceSquared(Vec2 a, Vec2 b);
 Vec2 GameNormalize(Vec2 v);
