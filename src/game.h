@@ -14,7 +14,7 @@
 #define UPGRADE_CHOICES 3
 #define MAX_RANKINGS 5
 
-#define SURVIVAL_SECONDS 900.0   /* PPT: 15분 */
+#define SURVIVAL_SECONDS 420.0   /* 7분 */
 #define MAX_NAME_LEN 15
 
 typedef enum AppScreen {

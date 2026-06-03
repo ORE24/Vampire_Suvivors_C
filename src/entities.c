@@ -258,12 +258,13 @@ void EnemiesSpawnWave(Game *game)
         y = 1 + rand() % (game->mapHeight - 2);
     }
 
+    /* #3: 박쥐 20HP(1발), 좀비 60HP(3발), 뱀파이어 120HP(6발) 기준 Dmg20 */
     if (type == ENEMY_ONE_HP) {
-        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 1, 1, 1, 2, 10, 0.0f, 0.30f, 'b'};
+        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 20, 20, 1, 2, 10, 0.0f, 0.30f, 'b'};
     } else if (type == ENEMY_THREE_HP) {
-        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 3, 3, 2, 6, 35, 0.0f, 0.50f, 'G'};
+        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 60, 60, 2, 6, 35, 0.0f, 0.50f, 'G'};
     } else {
-        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 40, 40, 6, 50, 450, 0.0f, 0.95f, 'V'};
+        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 120, 120, 6, 50, 450, 0.0f, 0.95f, 'V'};
     }
 }
 

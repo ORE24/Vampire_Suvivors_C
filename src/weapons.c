@@ -1,6 +1,7 @@
 #include "game.h"
 
 #include <math.h>
+#include <stdlib.h>
 
 #define PI 3.14159265358979323846f
 
@@ -139,19 +140,43 @@ static void FireSquare(Game *game, Weapon *weapon)
     GameRequestSound(game, SOUND_ATTACK);
 }
 
-/* ★ 별: 가장 가까운 적에게 강타 1발 (Dmg40, 쿨2.0s) */
+/* ★ 별: 가장 가까운 적 2명에게 강타 2발 (#8, 동거리 시 랜덤) */
 static void FireStar(Game *game, Weapon *weapon)
 {
-    const int targetIndex = FindNearestEnemy(game, weapon->range);
-    Vec2 direction;
+    const float maxDistSq = (float)(weapon->range * weapon->range);
+    int best[2]       = {-1,   -1};
+    float bestDist[2] = {1e30f, 1e30f};
+    int i;
 
-    if (targetIndex < 0) {
-        return;
+    for (i = 0; i < MAX_ENEMIES; i++) {
+        const Enemy *e = &game->enemies[i];
+        float d;
+        if (!e->active) continue;
+        d = GameDistanceSquared(game->player.position, e->position);
+        if (d > maxDistSq) continue;
+
+        if (d < bestDist[0]) {
+            bestDist[1] = bestDist[0]; best[1] = best[0];
+            bestDist[0] = d;           best[0] = i;
+        } else if (d < bestDist[1]) {
+            bestDist[1] = d; best[1] = i;
+        }
     }
 
-    direction.x = game->enemies[targetIndex].position.x - game->player.position.x;
-    direction.y = game->enemies[targetIndex].position.y - game->player.position.y;
-    SpawnProjectile(game, weapon, direction, 13.0f, 1.8f, 1);
+    if (best[0] < 0) return; /* 사거리 내 적 없음 */
+
+    /* 두 적의 거리가 같으면 랜덤으로 순서 교체 */
+    if (best[1] >= 0 && fabsf(bestDist[0] - bestDist[1]) < 0.01f && rand() % 2) {
+        int t = best[0]; best[0] = best[1]; best[1] = t;
+    }
+
+    for (i = 0; i < 2; i++) {
+        int t = (best[i] >= 0) ? best[i] : best[0]; /* 1명뿐이면 같은 대상에 2발 */
+        Vec2 dir;
+        dir.x = game->enemies[t].position.x - game->player.position.x;
+        dir.y = game->enemies[t].position.y - game->player.position.y;
+        SpawnProjectile(game, weapon, dir, 13.0f, 1.8f, 1);
+    }
     GameRequestSound(game, SOUND_ATTACK);
 }
 

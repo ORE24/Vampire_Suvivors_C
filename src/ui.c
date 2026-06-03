@@ -283,43 +283,58 @@ void UiDrawGame(const Game *game)
 {
     Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH];
     const int seconds = (int)game->elapsed;
-    const int remaining = (int)SURVIVAL_SECONDS - seconds;
+    /* #3: 다음 웨이브까지 남은 시간 */
+    float nextWave = game->spawnInterval - game->spawnTimer;
+    if (nextWave < 0.0f) nextWave = 0.0f;
 
     BuildGrid(game, grid);
     BeginFrame();
 
-    printf("\033[1;36mTerminal Survivors\033[0m  ");
-    printf("Mode %s  ", GameDifficultyName(game->difficulty));
-    printf("Time %02d:%02d / 10:00  ", seconds / 60, seconds % 60);
-    printf("Remain %02d:%02d  ", remaining / 60, remaining % 60);
-    printf("Kills %d  Score %d\n", game->player.kills, game->player.score);
+    /* #5: 현재 웨이브 (1분마다 증가, 최대 7) */
+    {
+        int wave = seconds / 60 + 1;
+        if (wave > 7) wave = 7;
 
-    DrawBar("HP", game->player.health, game->player.maxHealth, 18, "\033[1;31m");
-    printf("   ");
-    DrawBar("XP", game->player.xp, game->player.xpToNextLevel, 18, "\033[1;32m");
-    printf("   LV %d\n", game->player.level);
+        /* 줄1: 헤더 */
+        printf("\033[1;36mTerminal Survivors\033[0m  ");
+        printf("Mode %s  ", GameDifficultyName(game->difficulty));
+        printf("Time %02d:%02d  ", seconds / 60, seconds % 60);
+        printf("\033[1;33mWave %d/7\033[0m  ", wave);
+        printf("다음 스폰 %.1f초  ", nextWave);
+        printf("Kills %d  Score %d\033[K\n", game->player.kills, game->player.score);
+    }
 
+    /* 줄2: HP 바 넓게 + LV (#1) */
+    DrawBar("HP", game->player.health, game->player.maxHealth, 30, "\033[1;31m");
+    printf("   \033[1;37mLV %d\033[0m\033[K\n", game->player.level);
+
+    /* 줄3: XP 바 넓게 (#1) */
+    DrawBar("XP", game->player.xp, game->player.xpToNextLevel, 30, "\033[1;32m");
+    printf("\033[K\n");
+
+    /* 줄4: 무기 정보 + 특징 설명 (#5) */
     {
         static const char *weaponNames[WEAPON_COUNT] = {
-            "원형(○)", "삼각형(△)", "사각형(□)", "별(★)"
+            "원형(o)", "삼각형(^)", "사각형(+)", "별(*)"
         };
-        static const char *weaponGlyphs[WEAPON_COUNT] = {"o", "^", "+", "*"};
+        static const char *weaponDescs[WEAPON_COUNT] = {
+            "가장 가까운 적 조준 1발",
+            "가장 가까운 적 방향 3발 부채꼴",
+            "상하좌우 4방향 동시 발사",
+            "가장 가까운 적 2명 강타 2발"
+        };
         const Weapon *aw = &game->weapons[game->activeWeapon];
 
-        printf("\033[1;33m무기\033[0m: %s  Lv%d  Dmg%d  CD%.2fs",
-            weaponNames[game->activeWeapon], aw->level, aw->damage,
-            aw->cooldown);
-
-        /* 속도 버프 표시 */
-        if (game->player.attackSpeedMult > 1.0f) {
-            printf("  \033[1;33m공격속도x%.1f\033[0m", game->player.attackSpeedMult);
-        }
-        if (game->player.moveSpeedMult > 1.0f) {
-            printf("  \033[1;32m이동속도x%.1f\033[0m", game->player.moveSpeedMult);
-        }
-        /* 패시브 아이템 표시 */
+        /* #5: Dmg/CD 제거, 공격력/공격속도/이동속도 항상 표시 */
+        printf("\033[1;33m무기\033[0m: %s | %s | Lv%d",
+            weaponNames[game->activeWeapon],
+            weaponDescs[game->activeWeapon],
+            aw->level);
+        printf("  공격력 x%d", aw->damage);
+        printf("  \033[1;33m공격속도 x%.2f\033[0m", game->player.attackSpeedMult);
+        printf("  \033[1;32m이동속도 x%.2f\033[0m", game->player.moveSpeedMult);
         if (game->player.hpRecoveryLevel > 0) {
-            printf("  \033[1;31m❤Lv%d\033[0m", game->player.hpRecoveryLevel);
+            printf("  \033[1;31m붕대Lv%d\033[0m", game->player.hpRecoveryLevel);
         }
         if (game->player.shieldLevel > 0) {
             if (game->player.shieldTimer > 0.0f) {
@@ -328,36 +343,43 @@ void UiDrawGame(const Game *game)
                 printf("  \033[2;34m방패%.0fs후\033[0m", game->player.shieldCooldown);
             }
         }
-        printf("\n");
+        printf("\033[K\n");
+
+        /* 줄5: Legend */
         printf("Legend: \033[1;36m@\033[0m you  \033[1;31mb\033[0m 박쥐  "
                "\033[38;5;208mG\033[0m 좀비  \033[1;35mV\033[0m 뱀파이어  "
                "\033[1;33mo\033[0m 원형  \033[1;33m^\033[0m 삼각형  "
                "\033[1;33m+\033[0m 사각형  \033[1;33m*\033[0m 별  "
-               "\033[1;34m@\033[0m 방패무적  \033[1;32m+\033[0m XP\n\n");
-        (void)weaponGlyphs;
+               "\033[1;34m@\033[0m 방패무적  \033[1;32m+\033[0m XP\033[K\n\n");
     }
 
     for (int y = 0; y < game->mapHeight; y++) {
         DrawGridLine(grid, y, game->mapWidth);
     }
 
+    /* 모드별 하단 표시 (#5: 레벨업 세로 배치) */
     if (game->mode == GAME_MODE_LEVEL_UP) {
-        printf("\n\033[1;33mLEVEL UP\033[0m  "
-               "%s[1] %-16s\033[0m  %s[2] %-16s\033[0m  %s[3] %s\033[0m\n",
-            game->selectedUpgrade == 0 ? "\033[1;36m>" : " ",
-            game->upgrades[0].name,
-            game->selectedUpgrade == 1 ? "\033[1;36m>" : " ",
-            game->upgrades[1].name,
-            game->selectedUpgrade == 2 ? "\033[1;36m>" : " ",
-            game->upgrades[2].name);
+        int i;
+        printf("\n\033[1;33m  ========== LEVEL UP! ==========\033[0m\n");
+        for (i = 0; i < UPGRADE_CHOICES; i++) {
+            const bool sel = (game->selectedUpgrade == i);
+            printf("  %s\033[1;37m[%d]\033[0m ",
+                sel ? "\033[1;36m>\033[0m" : " ",
+                i + 1);
+            if (sel) { printf("\033[1;36m"); }
+            printf("%-22s\033[0m\n", game->upgrades[i].name);
+            printf("       \033[2;37m%s\033[0m\033[K\n", game->upgrades[i].description);
+        }
+        printf("  \033[1;33m================================\033[0m\n");
+        printf("  1~3 키 또는 <-> 방향키로 선택, Enter 확인\033[K\n");
     } else if (game->mode == GAME_MODE_PAUSED) {
-        printf("\n\033[1;33mPAUSED\033[0m  Press Esc to resume. Q ends the run.\n");
+        printf("\n\033[1;33mPAUSED\033[0m  Esc 재개 / Q 종료\033[K\n");
     } else if (game->mode == GAME_MODE_GAME_OVER) {
-        printf("\n\033[1;31mGAME OVER\033[0m  HP reached 0. Press R to restart or B/Esc for title.\n");
+        printf("\n\033[1;31mGAME OVER\033[0m  HP 0. R 재시작 / B,Esc 타이틀\033[K\n");
     } else if (game->mode == GAME_MODE_VICTORY) {
-        printf("\n\033[1;32mVICTORY\033[0m  You survived 10 minutes. Press R to restart or B/Esc for title.\n");
+        printf("\n\033[1;32mVICTORY\033[0m  생존 성공! R 재시작 / B,Esc 타이틀\033[K\n");
     } else {
-        printf("\nMove to dodge. Attacks are automatic. Esc pauses. Q ends the run. M toggles sound.\n");
+        printf("\nWASD/방향키 이동 | 공격 자동 | Esc 일시정지 | Q 종료 | M 음소거\033[K\n");
     }
 
     EndFrame();
