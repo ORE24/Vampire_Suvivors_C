@@ -38,7 +38,7 @@ static void ReadInput(InputState *input)
 
         /* 이름 입력용 raw 문자 저장 (알파벳/숫자/-/_) */
         if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') ||
-            (ch >= '0' && ch <= '9') || ch == '-' || ch == '_') {
+            (ch >= '0' && ch <= '9') || ch == '-' || ch == '_' || ch == '=') {
             input->typedChar = ch;
         }
 

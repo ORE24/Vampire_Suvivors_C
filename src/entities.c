@@ -174,30 +174,20 @@ static void TryMovePlayer(Game *game, int dx, int dy)
     }
 }
 
-static bool SpawnEnemyAt(Game *game, EnemyType type, int x, int y)
+static void ShieldBreak(Game *game)
 {
-    int slot = -1;
-
-    for (int i = 0; i < MAX_ENEMIES; i++) {
-        if (!game->enemies[i].active) {
-            slot = i;
-            break;
+    game->player.shieldTimer = 0.0f;
+    game->player.shieldHits  = 0;
+    game->shieldBreakTimer   = 1.2f;
+    for (int si = 0; si < MAX_ENEMIES; si++) {
+        Enemy *se = &game->enemies[si];
+        if (se->active) {
+            PickupSpawn(game, se->position, se->xpValue);
+            game->player.score += se->scoreValue;
+            GameOnKill(game);
+            se->active = false;
         }
     }
-
-    if (slot < 0 || GameMapIsBlocked(game, x, y)) {
-        return false;
-    }
-
-    if (type == ENEMY_ONE_HP) {
-        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 1, 1, 1, 2, 10, 0.0f, 0.24f, 'b'};
-    } else if (type == ENEMY_THREE_HP) {
-        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 3, 3, 2, 6, 35, 0.0f, 0.45f, 'G'};
-    } else {
-        game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 40, 40, 6, 50, 450, 0.0f, 0.90f, 'V'};
-    }
-
-    return true;
 }
 
 void PlayerUpdate(Game *game, const InputState *input, float dt)
@@ -215,37 +205,21 @@ void PlayerUpdate(Game *game, const InputState *input, float dt)
         }
     }
 
-    /* ❤️ 회복의 붕대: 일정 시간마다 HP 자동 회복 */
-    if (game->player.hpRecoveryLevel > 0) {
-        static const int   amounts[4]   = {0, 2, 3, 5};
-        static const float intervals[4] = {0.0f, 240.0f, 240.0f, 240.0f};
-
+    /* 회복의 붕대: 180초 활성 창, 만료 시 소멸 */
+    if (game->player.hpRecoveryLevel > 0 && game->player.hpRecoveryTimer > 0.0f) {
         game->player.hpRecoveryTimer -= dt;
         if (game->player.hpRecoveryTimer <= 0.0f) {
-            game->player.health += amounts[game->player.hpRecoveryLevel];
-            if (game->player.health > game->player.maxHealth) {
-                game->player.health = game->player.maxHealth;
-            }
-            game->player.hpRecoveryTimer = intervals[game->player.hpRecoveryLevel];
+            game->player.hpRecoveryTimer  = 0.0f;
+            game->player.hpRecoveryLevel  = 0;
+            game->player.bandageKillCount = 0;
         }
     }
 
-    /* 🛡️ 무적의 방패: 쿨타임마다 15초 자동 무적 발동 */
-    if (game->player.shieldLevel > 0) {
-        static const float cooldowns[4] = {0.0f, 120.0f, 90.0f, 60.0f};
-
-        if (game->player.shieldTimer > 0.0f) {
-            game->player.shieldTimer -= dt;
-            if (game->player.shieldTimer < 0.0f) {
-                game->player.shieldTimer = 0.0f;
-            }
-        } else {
-            game->player.shieldCooldown -= dt;
-            if (game->player.shieldCooldown <= 0.0f) {
-                game->player.shieldTimer = 15.0f;
-                game->player.shieldCooldown = cooldowns[game->player.shieldLevel];
-                game->auraPulseTimer = 0.22f;  /* 방패 발동 시각 효과 */
-            }
+    /* 무적의 방패: 5번 방어 또는 20초 만료 시 화면 몬스터 전멸 */
+    if (game->player.shieldTimer > 0.0f) {
+        game->player.shieldTimer -= dt;
+        if (game->player.shieldTimer <= 0.0f) {
+            ShieldBreak(game);
         }
     }
 
@@ -330,12 +304,16 @@ void EnemiesSpawnWave(Game *game)
         int steps = (int)(game->elapsed / 120.0f);
         float speedScale = 1.0f - steps * 0.03f;
         if (speedScale < 0.5f) speedScale = 0.5f;
+        float hpMult = 1.0f + steps * 0.10f;
+        int hpBat  = (int)(20  * hpMult + 0.5f);
+        int hpZomb = (int)(50  * hpMult + 0.5f);
+        int hpVamp = (int)(120 * hpMult + 0.5f);
         if (type == ENEMY_ONE_HP) {
-            game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 1, 1, 1, 2, 10, 0.0f, 0.30f * speedScale, 'b'};
+            game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, hpBat,  hpBat,  1, 2, 10, 0.0f, 0.30f * speedScale, 'b'};
         } else if (type == ENEMY_THREE_HP) {
-            game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 3, 3, 2, 6, 35, 0.0f, 0.50f * speedScale, 'G'};
+            game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, hpZomb, hpZomb, 2, 6, 35, 0.0f, 0.50f * speedScale, 'G'};
         } else {
-            game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, 40, 40, 6, 50, 450, 0.0f, 0.95f * speedScale, 'V'};
+            game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, hpVamp, hpVamp, 6, 50, 450, 0.0f, 0.95f * speedScale, 'V'};
         }
     }
 }
@@ -454,12 +432,18 @@ void EnemiesUpdate(Game *game, float dt)
 
         if (abs(enemyX - playerX) <= 1 && abs(enemyY - playerY) <= 1) {
             /* 방패 무적(shieldTimer) 또는 피격 무적(invulnerableTimer) 중이면 피해 없음 */
-            if (game->player.invulnerableTimer <= 0.0f &&
-                game->player.shieldTimer <= 0.0f) {
-                game->player.health -= enemy->damage;
-                game->player.invulnerableTimer = 0.85f;
-                GameBossOnPlayerHit(game);
-                GameRequestSound(game, SOUND_HIT);
+            if (game->player.invulnerableTimer <= 0.0f) {
+                if (game->player.shieldTimer > 0.0f) {
+                    game->player.shieldHits--;
+                    game->player.invulnerableTimer = 0.85f;
+                    if (game->player.shieldHits <= 0) {
+                        ShieldBreak(game);
+                    }
+                } else {
+                    game->player.health -= enemy->damage;
+                    game->player.invulnerableTimer = 0.85f;
+                    GameRequestSound(game, SOUND_HIT);
+                }
             }
             continue;
         }
@@ -551,31 +535,10 @@ void EnemiesDamageInRadius(Game *game, Vec2 center, int radius, int damage)
         if (GameDistanceSquared(enemy->position, center) <= radiusSquared) {
             enemy->health -= damage;
             if (enemy->health <= 0) {
-                EnemyDefeat(game, enemy);
-            }
-        }
-    }
-
-    GameBossDamageInRadius(game, center, radius, damage);
-}
-
-static Pickup *FindReusablePickupSlot(Game *game, PickupType type, int value)
-{
-    Pickup *mergeTarget = NULL;
-    Pickup *replaceTarget = NULL;
-    Pickup *xpValueTarget = NULL;
-    int replacePriority = 100;
-
-    for (int i = 0; i < MAX_PICKUPS; i++) {
-        Pickup *pickup = &game->pickups[i];
-        if (!pickup->active) {
-            return pickup;
-        }
-        if (pickup->type == PICKUP_XP) {
-            if (mergeTarget == NULL) {
-                mergeTarget = pickup;
-            } else if (xpValueTarget == NULL) {
-                xpValueTarget = pickup;
+                PickupSpawn(game, enemy->position, enemy->xpValue);
+                game->player.score += enemy->scoreValue;
+                GameOnKill(game);
+                enemy->active = false;
             }
         }
         if (PickupPriority(pickup->type) < replacePriority) {

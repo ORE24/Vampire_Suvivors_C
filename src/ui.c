@@ -17,11 +17,8 @@ typedef enum CellColor {
     CELL_PICKUP_HEAL,
     CELL_PICKUP_POWER,
     CELL_AURA,
-    CELL_BOSS,
-    CELL_BOSS_TRUE,
-    CELL_SHADOW,
-    CELL_PUZZLE,
-    CELL_TEXT
+    CELL_TEXT,
+    CELL_BLOOD
 } CellColor;
 
 typedef struct Cell {
@@ -64,6 +61,8 @@ static const char *ColorCode(CellColor color)
             return "\033[1;32m";
         case CELL_TEXT:
             return "\033[1;37m";
+        case CELL_BLOOD:
+            return "\033[38;5;196m";
     }
 
     return "\033[0m";
@@ -82,6 +81,11 @@ static void BeginFrameFull(void)
 {
     printf("\033[?25l");
     printf("\033[2J\033[H");  /* 화면 전체 지우기 + 맨 위로 */
+}
+
+static void BeginCleanFrame(void)
+{
+    printf("\033[H\033[2J");
 }
 
 static void EndFrame(void)
@@ -159,6 +163,19 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
         }
     }
 
+    if (game->shieldBreakTimer > 0.0f) {
+        /* 방패 폭발: 맵 전체 바닥 타일을 깜빡이는 * 로 덮음 */
+        if (((int)(game->shieldBreakTimer * 8.0f) % 2) == 0) {
+            for (int y = 0; y < game->mapHeight; y++) {
+                for (int x = 0; x < game->mapWidth; x++) {
+                    if (!GameMapIsBlocked(game, x, y)) {
+                        PutCell(game, grid, x, y, '*', CELL_AURA);
+                    }
+                }
+            }
+        }
+    }
+
     if (game->auraPulseTimer > 0.0f) {
         const int centerX = GameRound(game->player.position.x);
         const int centerY = GameRound(game->player.position.y);
@@ -233,7 +250,8 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
     for (int i = 0; i < MAX_PROJECTILES; i++) {
         const Projectile *projectile = &game->projectiles[i];
         if (projectile->active) {
-            PutCell(game, grid, GameRound(projectile->position.x), GameRound(projectile->position.y), projectile->glyph, CELL_PROJECTILE);
+            PutCell(game, grid, GameRound(projectile->position.x), GameRound(projectile->position.y), projectile->glyph,
+                projectile->glyph == 'o' ? CELL_BLOOD : CELL_PROJECTILE);
         }
     }
 
@@ -333,7 +351,7 @@ static void DrawGridLine(const Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH], int y, 
 
 void UiDrawTitle(void)
 {
-    BeginFrameFull();
+    BeginCleanFrame();
     printf("\033[1;36m");
     printf("======================================================================\n");
     printf("                    TERMINAL SURVIVORS: CRYPT MVP                    \n");
@@ -357,7 +375,7 @@ void UiDrawTitle(void)
 
 void UiDrawSetup(GameDifficulty selectedDifficulty)
 {
-    BeginFrameFull();
+    BeginCleanFrame();
     printf("\033[1;36m============================== SETUP ================================\033[0m\n\n");
     printf("게임 시작 전 난이도를 선택하세요.\n\n");
     printf("%s[1] 이지\033[0m  HP 14, 느린 웨이브, 늦은 흡혈귀\n",
@@ -371,7 +389,7 @@ void UiDrawSetup(GameDifficulty selectedDifficulty)
 
 void UiDrawRanking(const RankingEntry entries[MAX_RANKINGS], int count)
 {
-    BeginFrameFull();
+    BeginCleanFrame();
     printf("\033[1;33m============================== RANKING ==============================\033[0m\n\n");
 
     if (count == 0) {
@@ -552,103 +570,54 @@ void UiDrawGame(const Game *game)
     BeginFrame();
 
     printf("\033[1;36mTerminal Survivors\033[0m  ");
-    printf("Mode %s  ", GameDifficultyName(game->difficulty));
-    if (game->mapPhase == MAP_PHASE_GRAVEYARD) {
-        printf("\033[1;31mGRAVEYARD\033[0m  ");
-    } else if (game->mapPhase == MAP_PHASE_BOSS_ARENA) {
-        printf("\033[1;35mBOSS ARENA\033[0m  ");
-    }
-    printf("Time %02d:%02d  ", seconds / 60, seconds % 60);
-    printf("Goal 최종 보스 처치  ");
-    printf("Kills %d  Score %d\n", game->player.kills, game->player.score);
+    printf("[%s]  ", GameDifficultyName(game->difficulty));
+    printf("Time %02d:%02d / 10:00  ", seconds / 60, seconds % 60);
+    printf("Remain %02d:%02d\033[K\n", remaining / 60, remaining % 60);
+    printf("Kills %d  Score %d\033[K\n", game->player.kills, game->player.score);
 
     DrawBar("HP", game->player.health, game->player.maxHealth, 18, "\033[1;31m");
     printf("   ");
     DrawBar("XP", game->player.xp, game->player.xpToNextLevel, 18, "\033[1;32m");
-    printf("   LV %d\n", game->player.level);
+    printf("   LV %d\033[K\n", game->player.level);
 
     {
         static const char *weaponNames[WEAPON_COUNT] = {
-            "원형(○)", "삼각형(△)", "사각형(□)", "별(★)"
+            "피의 고리", "혼돈의 살점", "십자 저주", "부패한 혜성"
         };
-        static const char *weaponGlyphs[WEAPON_COUNT] = {"o", "^", "+", "*"};
         const Weapon *aw = &game->weapons[game->activeWeapon];
 
         printf("\033[1;33m무기\033[0m: %s  Lv%d  Dmg%d  CD%.2fs",
             weaponNames[game->activeWeapon], aw->level, aw->damage,
             aw->cooldown);
 
-        /* 속도 버프 표시 */
         if (game->player.attackSpeedMult > 1.0f) {
             printf("  \033[1;33m공격속도x%.1f\033[0m", game->player.attackSpeedMult);
         }
         if (game->player.moveSpeedMult > 1.0f) {
             printf("  \033[1;32m이동속도x%.1f\033[0m", game->player.moveSpeedMult);
         }
-        if (game->frenzyTimer > 0.0f) {
-            printf("  \033[1;35m폭주탄창 %.1fs\033[0m", game->frenzyTimer);
+        if (game->player.hpRecoveryLevel > 0 && game->player.hpRecoveryTimer > 0.0f) {
+            printf("  \033[1;31m[붕대 %d/20킬 %.0fs]\033[0m",
+                game->player.bandageKillCount, game->player.hpRecoveryTimer);
         }
-        if (game->activeMiniEvent == MINI_EVENT_BLOOD_MIST) {
-            printf("  \033[1;31m피의안개 %.1fs\033[0m", game->miniEventTimer);
-        } else if (game->activeMiniEvent == MINI_EVENT_BAT_STORM) {
-            printf("  \033[1;31m박쥐폭풍\033[0m");
-        }
-        /* 패시브 아이템 표시 */
-        if (game->player.hpRecoveryLevel > 0) {
-            printf("  \033[1;31m❤Lv%d\033[0m", game->player.hpRecoveryLevel);
-        }
-        if (game->player.shieldLevel > 0) {
-            if (game->player.shieldTimer > 0.0f) {
-                printf("  \033[1;34mSHIELD %.0fs\033[0m", game->player.shieldTimer);
-            } else {
-                printf("  \033[2;34m방패%.0fs후\033[0m", game->player.shieldCooldown);
-            }
+        if (game->player.shieldTimer > 0.0f) {
+            printf("  \033[1;34mSHIELD %d회 남음 / %.0fs\033[0m",
+                game->player.shieldHits, game->player.shieldTimer);
         }
         printf("\033[K\n");
-        printf("Legend: \033[1;36m@\033[0m you  \033[1;31mb\033[0m 박쥐  "
+        printf("\033[1;36m@\033[0m you  \033[1;31mb\033[0m 박쥐  "
                "\033[38;5;208mG\033[0m 좀비  \033[1;35mV\033[0m 뱀파이어  "
-               "\033[1;33mo\033[0m 원형  \033[1;33m^\033[0m 삼각형  "
-               "\033[1;33m+\033[0m 사각형  \033[1;33m*\033[0m 별  "
-               "\033[1;34m@\033[0m 방패무적  \033[1;32m+\033[0m XP  "
-               "\033[1;31mH\033[0m 구급상자  "
-               "\033[1;35mM\033[0m 진공  \033[1;35mR\033[0m 로자리  "
-               "\033[1;35m?\033[0m 주사위  \033[1;35mB\033[0m 폭주탄창  "
-               "\033[1;35mC\033[0m 보물상자\n");
-        if (BossPanelVisible(game)) {
-            printf("Boss Legend: \033[1;35mW\033[0m 보스  "
-                   "\033[1;33m!\033[0m 진짜  \033[1;32mR/B/G/Y/A\033[0m 제단  "
-                   "\033[1;33mO\033[0m 구슬  \033[2;36m&\033[0m 그림자\n\n");
-        } else {
-            printf("\n");
-        }
-        (void)weaponGlyphs;
+               "\033[38;5;196mo\033[0m 피의고리  \033[1;33m^\033[0m 혼돈의살점  "
+               "\033[1;33m+\033[0m 십자저주  \033[1;33m*\033[0m 부패한혜성  "
+               "\033[1;34m@\033[0m 방패무적  \033[1;32m+\033[0m XP\033[K\n\033[K\n");
     }
 
     for (int y = 0; y < game->mapHeight; y++) {
         DrawGridLine(grid, y, game->mapWidth);
     }
 
-    if (BossPanelVisible(game)) {
-        DrawBossPanel(game);
-    }
-    if (BossPanelVisible(game) &&
-        game->bossMessageTimer > 0.0f &&
-        game->bossMessage[0] != '\0') {
-        printf("\033[1;35m보스 메시지: %s\033[0m\033[K\n", game->bossMessage);
-    } else if (BossPanelVisible(game)) {
-        printf("\033[K\n");
-    }
-
-    /* 경고 문구: 0.7초마다 깜빡임. 항상 1줄 차지해서 레이아웃 고정 */
-    if (game->graveyardWarningTimer > 0.0f) {
-        if (game->mapPhase == MAP_PHASE_BOSS_ARENA) {
-            printf("\033[1;35m  보스 아레나로 돌아왔습니다... FINAL BOSS AWAKENS\033[0m\033[K\n");
-        } else {
-            printf("\033[1;31m  묘지가 깨어났습니다...  THE GRAVEYARD AWAKENS\033[0m\033[K\n");
-        }
-    } else if (game->diceMessageTimer > 0.0f && game->diceMessage[0] != '\0') {
-        printf("\033[1;35m  %s\033[0m\033[K\n", game->diceMessage);
-    } else if (game->speedWarningTimer > 0.0f && ((int)(game->speedWarningTimer / 0.7f) % 2) == 0) {
+    /* 경고 문구: 항상 1줄 차지 */
+    if (game->speedWarningTimer > 0.0f && ((int)(game->speedWarningTimer / 0.7f) % 2) == 0) {
         printf("\033[1;31m  !! 몬스터가 더 강력해집니다! !!\033[0m\033[K\n");
     } else if (game->miniEventMessageTimer > 0.0f && game->activeMiniEvent == MINI_EVENT_BLOOD_MIST) {
         printf("\033[1;31m  MINI EVENT: 피의 안개! 시야가 흐려지고 적이 빨라집니다.\033[0m\033[K\n");
