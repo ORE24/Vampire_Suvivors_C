@@ -1,6 +1,7 @@
 #include "game.h"
 
 #include <math.h>
+#include <stdlib.h>
 
 #define PI 3.14159265358979323846f
 
@@ -162,19 +163,19 @@ static void FireCircle(Game *game, Weapon *weapon)
 /* 혼돈의 살점: 부채꼴 3발 (Lv7: 5발) */
 static void FireTriangle(Game *game, Weapon *weapon)
 {
-    const int targetIndex = FindNearestEnemy(game, weapon->range);
+    Vec2 targetPosition;
     Vec2 direction;
     float baseAngle;
     int count = (weapon->level >= 7) ? 5 : weapon->projectileCount;
     int half = count / 2;
     int i;
 
-    if (targetIndex < 0) {
+    if (!FindNearestTargetPosition(game, weapon->range, &targetPosition)) {
         return;
     }
 
-    direction.x = game->enemies[targetIndex].position.x - game->player.position.x;
-    direction.y = game->enemies[targetIndex].position.y - game->player.position.y;
+    direction.x = targetPosition.x - game->player.position.x;
+    direction.y = targetPosition.y - game->player.position.y;
     direction = GameNormalize(direction);
     baseAngle = atan2f(direction.y, direction.x);
 
@@ -183,7 +184,7 @@ static void FireTriangle(Game *game, Weapon *weapon)
         SpawnProjectile(game, weapon, (Vec2){cosf(angle), sinf(angle)}, 13.0f, 1.8f, 1, 0);
     }
 
-    GameRequestSound(game, SOUND_ATTACK);
+    GameRequestSound(game, SOUND_SHOOT);
 }
 
 /* 십자 저주: 4방향 발사 (Lv7: 4방향 각 2발) */
@@ -214,16 +215,16 @@ static void FireSquare(Game *game, Weapon *weapon)
         }
     }
 
-    GameRequestSound(game, SOUND_ATTACK);
+    GameRequestSound(game, SOUND_SHOOT);
 }
 
 /* 부패한 혜성: 강타 1발 (Lv7: 3발씩 3연사 버스트) */
 static void FireStar(Game *game, Weapon *weapon)
 {
-    const int targetIndex = FindNearestEnemy(game, weapon->range);
+    Vec2 targetPosition;
     Vec2 direction;
 
-    if (targetIndex < 0) {
+    if (!FindNearestTargetPosition(game, weapon->range, &targetPosition)) {
         return;
     }
 

@@ -1,9 +1,10 @@
 # 터미널 서바이버즈: C MVP
 
-터미널 환경에서 실행되는 뱀파이어 서바이벌 스타일 C언어 MVP입니다. `raylib`, `SDL`, `ncurses` 같은 외부 그래픽 라이브러리를 쓰지 않고 ANSI escape sequence와 터미널 bell 소리만 사용합니다.
+터미널 환경에서 실행되는 뱀파이어 서바이벌 스타일 C언어 MVP입니다. `raylib`, `SDL`, `ncurses` 같은 외부 그래픽 라이브러리를 쓰지 않고 ANSI escape sequence를 사용합니다. 사운드는 Windows 기본 WinMM API로 `assets/audio/*.wav` 효과음을 재생합니다.
 
 현재 지원 대상은 Windows와 Visual Studio 2022입니다.
 게임 맵은 `96 x 30` 타일로 고정되어 있어 터미널 창 크기와 디스플레이 크기가 달라도 같은 좌표와 규칙으로 진행됩니다.
+현재 승리 목표는 3~5분 묘지 생존 구간을 넘긴 뒤 시작맵 지형에서 진행되는 2페이즈 보스전을 완료하고 최종 보스를 처치하는 것입니다.
 
 ## 협업자 시작점
 

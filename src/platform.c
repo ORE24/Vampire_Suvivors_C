@@ -11,6 +11,9 @@
 
 #include <conio.h>
 #include <windows.h>
+#include <mmsystem.h>
+
+#pragma comment(lib, "winmm.lib")
 
 #ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
 #define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
@@ -26,6 +29,20 @@ static bool terminalReady = false;
 static char pendingBytes[4];
 static int pendingIndex = 0;
 static int pendingCount = 0;
+
+static const char *SOUND_PATHS[PLATFORM_SOUND_COUNT] = {
+    "",
+    "assets\\audio\\ui_move.wav",
+    "assets\\audio\\ui_confirm.wav",
+    "assets\\audio\\shoot.wav",
+    "assets\\audio\\xp_pickup.wav",
+    "assets\\audio\\heal_pickup.wav",
+    "assets\\audio\\power_pickup.wav",
+    "assets\\audio\\level_up.wav",
+    "assets\\audio\\hit.wav",
+    "assets\\audio\\game_over.wav",
+    "assets\\audio\\victory.wav"
+};
 
 static bool TranslateWindowsKey(int key, char *out)
 {
@@ -175,6 +192,26 @@ void PlatformGetTerminalSize(int *columns, int *rows)
             *rows = info.srWindow.Bottom - info.srWindow.Top + 1;
         }
     }
+}
+
+const char *PlatformSoundPath(PlatformSound sound)
+{
+    if (sound <= PLATFORM_SOUND_NONE || sound >= PLATFORM_SOUND_COUNT) {
+        return "";
+    }
+
+    return SOUND_PATHS[sound];
+}
+
+void PlatformPlaySound(PlatformSound sound)
+{
+    const char *path = PlatformSoundPath(sound);
+
+    if (path[0] == '\0') {
+        return;
+    }
+
+    (void)PlaySoundA(path, NULL, SND_ASYNC | SND_FILENAME | SND_NODEFAULT);
 }
 
 #endif
