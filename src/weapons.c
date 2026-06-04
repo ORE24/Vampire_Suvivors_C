@@ -34,6 +34,20 @@ static int FindNearestEnemy(const Game *game, int range)
     return nearest;
 }
 
+/* 무기 발사용 목표 좌표를 찾고, 없으면 발사를 생략하게 한다 */
+static bool FindNearestTargetPosition(const Game *game, int range, Vec2 *position)
+{
+    const int enemyIndex = FindNearestEnemy(game, range);
+
+    if (enemyIndex >= 0) {
+        *position = game->enemies[enemyIndex].position;
+        return true;
+    }
+
+    return false;
+}
+
+/* 비궤도 투사체 슬롯을 초기화해 무기별 발사 함수가 같은 생성 규칙을 쓰게 한다 */
 static void SpawnProjectile(Game *game, const Weapon *weapon, Vec2 direction, float speed, float lifetime, int pierce, int areaHit)
 {
     for (int i = 0; i < MAX_PROJECTILES; i++) {
@@ -81,6 +95,7 @@ static void SpawnOrbitProjectile(Game *game, const Weapon *weapon, float angle, 
     }
 }
 
+/* 빠른 투사체가 벽을 건너뛰지 않도록 이동 경로를 샘플링한다 */
 static bool ProjectilePathHitsWall(const Game *game, Vec2 from, Vec2 to)
 {
     const float dx = to.x - from.x;
@@ -141,7 +156,7 @@ static void FireCircle(Game *game, Weapon *weapon)
                     SpawnOrbitProjectile(game, weapon, angle, RADII[r]);
                 }
             }
-            GameRequestSound(game, SOUND_ATTACK);
+            GameRequestSound(game, SOUND_SHOOT);
         }
         return;
     }
@@ -156,7 +171,7 @@ static void FireCircle(Game *game, Weapon *weapon)
         direction.x = game->enemies[targetIndex].position.x - game->player.position.x;
         direction.y = game->enemies[targetIndex].position.y - game->player.position.y;
         SpawnProjectile(game, weapon, direction, 13.0f, 1.8f, 1, 0);
-        GameRequestSound(game, SOUND_ATTACK);
+        GameRequestSound(game, SOUND_SHOOT);
     }
 }
 
@@ -228,8 +243,8 @@ static void FireStar(Game *game, Weapon *weapon)
         return;
     }
 
-    direction.x = game->enemies[targetIndex].position.x - game->player.position.x;
-    direction.y = game->enemies[targetIndex].position.y - game->player.position.y;
+    direction.x = targetPosition.x - game->player.position.x;
+    direction.y = targetPosition.y - game->player.position.y;
 
     if (weapon->level >= 7) {
         /* 1차 발사 (3발 부채꼴), 이후 2연 버스트 예약 */
@@ -245,7 +260,7 @@ static void FireStar(Game *game, Weapon *weapon)
         SpawnProjectile(game, weapon, direction, 13.0f, 1.8f, 1, 0);
     }
 
-    GameRequestSound(game, SOUND_ATTACK);
+    GameRequestSound(game, SOUND_SHOOT);
 }
 
 /* 현재 장착 무기 발사 + 부패한 혜성 버스트 처리 */
@@ -275,7 +290,7 @@ void WeaponsUpdate(Game *game, float dt)
                 float a = baseAngle + (float)s * 0.18f;
                 SpawnProjectile(game, weapon, (Vec2){cosf(a), sinf(a)}, 14.0f, 2.0f, 1, 0);
             }
-            GameRequestSound(game, SOUND_ATTACK);
+            GameRequestSound(game, SOUND_SHOOT);
             weapon->burstRemaining--;
             weapon->burstTimer = 0.15f;
         }
@@ -303,6 +318,7 @@ void WeaponsUpdate(Game *game, float dt)
     }
 }
 
+/* 투사체 수명, 이동, 궤도 위치, 벽 충돌을 갱신 */
 void ProjectilesUpdate(Game *game, float dt)
 {
     for (int i = 0; i < MAX_PROJECTILES; i++) {
@@ -336,6 +352,7 @@ void ProjectilesUpdate(Game *game, float dt)
     }
 }
 
+/* 투사체와 적 충돌을 해결하고 처치 처리는 EnemyDefeat로 위임 */
 void CombatResolve(Game *game)
 {
     for (int projectileIndex = 0; projectileIndex < MAX_PROJECTILES; projectileIndex++) {
@@ -367,10 +384,7 @@ void CombatResolve(Game *game)
                 enemy->health -= projectile->damage;
                 projectile->orbitHitCooldown = 0.5f / atkMult;
                 if (enemy->health <= 0) {
-                    PickupSpawn(game, enemy->position, enemy->xpValue);
-                    game->player.score += enemy->scoreValue;
-                    GameOnKill(game);
-                    enemy->active = false;
+                    EnemyDefeat(game, enemy);
                 }
             } else if (projectile->areaHit > 0) {
                 /* 3x3 범위 타격 */
@@ -384,10 +398,7 @@ void CombatResolve(Game *game)
                 }
 
                 if (enemy->health <= 0) {
-                    PickupSpawn(game, enemy->position, enemy->xpValue);
-                    game->player.score += enemy->scoreValue;
-                    GameOnKill(game);
-                    enemy->active = false;
+                    EnemyDefeat(game, enemy);
                 }
             }
             break;

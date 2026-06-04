@@ -18,6 +18,13 @@ typedef enum PlatformSound {
     PLATFORM_SOUND_COUNT
 } PlatformSound;
 
+typedef enum PlatformMusic {
+    PLATFORM_MUSIC_NONE = 0,
+    PLATFORM_MUSIC_MENU,
+    PLATFORM_MUSIC_GAME,
+    PLATFORM_MUSIC_COUNT
+} PlatformMusic;
+
 void PlatformEnterTerminal(void);
 void PlatformExitTerminal(void);
 double PlatformNowSeconds(void);
@@ -25,6 +32,8 @@ void PlatformSleepFrame(double seconds);
 bool PlatformReadByte(char *out);
 void PlatformGetTerminalSize(int *columns, int *rows);
 const char *PlatformSoundPath(PlatformSound sound);
+const char *PlatformMusicPath(PlatformMusic music);
 void PlatformPlaySound(PlatformSound sound);
+void PlatformPlayMusic(PlatformMusic music, bool enabled);
 
 #endif

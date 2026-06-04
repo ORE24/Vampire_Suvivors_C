@@ -1,35 +1,19 @@
 #include "game.h"
 
-#include <math.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 #define ENEMY_UNREACHABLE 1000000
 #define PICKUP_COLLECT_DISTANCE 0.8f
 #define PICKUP_BONUS_ROLL_MAX 1000
-#define PICKUP_HEAL_PACK_CHANCE 20
-#define PICKUP_GAMBLER_DICE_CHANCE 12
-#define PICKUP_FRENZY_MAGAZINE_CHANCE 10
-#define PICKUP_PINATA_SKULL_CHANCE 10
-#define PICKUP_VACUUM_CHANCE 8
-#define PICKUP_ROSARY_CHANCE 6
-#define FRENZY_MAGAZINE_SECONDS 5.0f
+#define PICKUP_TREASURE_CHEST_CHANCE 55
 
 static int PickupPriority(PickupType type)
 {
     switch (type) {
         case PICKUP_XP:
             return 0;
-        case PICKUP_HEAL_PACK:
+        case PICKUP_TREASURE_CHEST:
             return 1;
-        case PICKUP_GAMBLER_DICE:
-        case PICKUP_FRENZY_MAGAZINE:
-        case PICKUP_PINATA_SKULL:
-            return 2;
-        case PICKUP_VACUUM:
-            return 3;
-        case PICKUP_ROSARY:
-            return 4;
         default:
             return 0;
     }
@@ -58,6 +42,7 @@ static bool IsEnemyAt(const Game *game, int x, int y)
     return false;
 }
 
+/* 적들이 벽을 돌아서 추적하도록 플레이어 기준 거리 맵을 만든다 */
 static void BuildEnemyDistanceMap(const Game *game, int distances[MAX_MAP_HEIGHT][MAX_MAP_WIDTH], int playerX, int playerY)
 {
     static int queueX[MAX_MAP_WIDTH * MAX_MAP_HEIGHT];
@@ -174,6 +159,30 @@ static void TryMovePlayer(Game *game, int dx, int dy)
     }
 }
 
+/* 시간 경과에 따른 체력/속도 스케일을 포함해 적 기본 스탯을 생성 */
+static Enemy CreateEnemy(EnemyType type, int x, int y, float elapsed)
+{
+    const int steps = (int)(elapsed / 120.0f);
+    float speedScale = 1.0f - (float)steps * 0.03f;
+    const float hpMult = 1.0f + (float)steps * 0.10f;
+    const int hpBat = (int)(20.0f * hpMult + 0.5f);
+    const int hpZomb = (int)(50.0f * hpMult + 0.5f);
+    const int hpVamp = (int)(120.0f * hpMult + 0.5f);
+
+    if (speedScale < 0.5f) {
+        speedScale = 0.5f;
+    }
+
+    if (type == ENEMY_ONE_HP) {
+        return (Enemy){true, type, {(float)x, (float)y}, hpBat, hpBat, 1, 2, 10, 0.0f, 0.30f * speedScale, 'b'};
+    }
+    if (type == ENEMY_THREE_HP) {
+        return (Enemy){true, type, {(float)x, (float)y}, hpZomb, hpZomb, 2, 6, 35, 0.0f, 0.50f * speedScale, 'G'};
+    }
+    return (Enemy){true, type, {(float)x, (float)y}, hpVamp, hpVamp, 6, 50, 450, 0.0f, 0.95f * speedScale, 'V'};
+}
+
+/* 방패가 깨질 때 남은 적을 정리하고 폭발 연출 타이머를 켠다 */
 static void ShieldBreak(Game *game)
 {
     game->player.shieldTimer = 0.0f;
@@ -182,14 +191,12 @@ static void ShieldBreak(Game *game)
     for (int si = 0; si < MAX_ENEMIES; si++) {
         Enemy *se = &game->enemies[si];
         if (se->active) {
-            PickupSpawn(game, se->position, se->xpValue);
-            game->player.score += se->scoreValue;
-            GameOnKill(game);
-            se->active = false;
+            EnemyDefeat(game, se);
         }
     }
 }
 
+/* 플레이어 이동과 패시브 아이템 타이머를 한 프레임씩 진행 */
 void PlayerUpdate(Game *game, const InputState *input, float dt)
 {
     int dx = 0;
@@ -223,16 +230,16 @@ void PlayerUpdate(Game *game, const InputState *input, float dt)
         }
     }
 
-    if (input->left && game->bossForbiddenKey != 'A') {
+    if (input->left) {
         dx--;
     }
-    if (input->right && game->bossForbiddenKey != 'D') {
+    if (input->right) {
         dx++;
     }
-    if (input->up && game->bossForbiddenKey != 'W') {
+    if (input->up) {
         dy--;
     }
-    if (input->down && game->bossForbiddenKey != 'S') {
+    if (input->down) {
         dy++;
     }
 
@@ -240,12 +247,34 @@ void PlayerUpdate(Game *game, const InputState *input, float dt)
         TryMovePlayer(game, dx, dy);
         /* 이동속도 배율 적용: 쿨타임을 배율로 나눔 */
         game->player.moveCooldown = 0.105f / game->player.moveSpeedMult;
-        if (game->bossOrbCarried) {
-            game->player.moveCooldown *= 1.65f;
-        }
     }
 }
 
+static bool SpawnEnemyAt(Game *game, EnemyType type, int x, int y)
+{
+    int slot = -1;
+
+    if (GameMapIsBlocked(game, x, y) || IsEnemyAt(game, x, y)) {
+        return false;
+    }
+
+    for (int i = 0; i < MAX_ENEMIES; i++) {
+        if (!game->enemies[i].active) {
+            slot = i;
+            break;
+        }
+    }
+
+    if (slot < 0) {
+        return false;
+    }
+
+    game->enemies[slot] = CreateEnemy(type, x, y, game->elapsed);
+
+    return true;
+}
+
+/* 일반 외곽 웨이브를 하나 생성하고 난이도/시간에 따라 적 종류를 섞는다 */
 void EnemiesSpawnWave(Game *game)
 {
     int slot = -1;
@@ -300,24 +329,10 @@ void EnemiesSpawnWave(Game *game)
         y = 1 + rand() % (game->mapHeight - 2);
     }
 
-    {
-        int steps = (int)(game->elapsed / 120.0f);
-        float speedScale = 1.0f - steps * 0.03f;
-        if (speedScale < 0.5f) speedScale = 0.5f;
-        float hpMult = 1.0f + steps * 0.10f;
-        int hpBat  = (int)(20  * hpMult + 0.5f);
-        int hpZomb = (int)(50  * hpMult + 0.5f);
-        int hpVamp = (int)(120 * hpMult + 0.5f);
-        if (type == ENEMY_ONE_HP) {
-            game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, hpBat,  hpBat,  1, 2, 10, 0.0f, 0.30f * speedScale, 'b'};
-        } else if (type == ENEMY_THREE_HP) {
-            game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, hpZomb, hpZomb, 2, 6, 35, 0.0f, 0.50f * speedScale, 'G'};
-        } else {
-            game->enemies[slot] = (Enemy){true, type, {(float)x, (float)y}, hpVamp, hpVamp, 6, 50, 450, 0.0f, 0.95f * speedScale, 'V'};
-        }
-    }
+    game->enemies[slot] = CreateEnemy(type, x, y, game->elapsed);
 }
 
+/* 박쥐 폭풍 이벤트용 약한 적을 외곽에 한꺼번에 소환 */
 void EnemiesSpawnBatStorm(Game *game, int count)
 {
     for (int i = 0; i < count; i++) {
@@ -343,73 +358,7 @@ void EnemiesSpawnBatStorm(Game *game, int count)
     }
 }
 
-static EnemyType RollGraveyardEnemyType(const Game *game)
-{
-    const int roll = rand() % 100;
-
-    if (game->difficulty == DIFFICULTY_HARD) {
-        if (roll < 20) {
-            return ENEMY_FORTY_HP;
-        }
-        if (roll < 82) {
-            return ENEMY_THREE_HP;
-        }
-        return ENEMY_ONE_HP;
-    }
-
-    if (roll < 12) {
-        return ENEMY_FORTY_HP;
-    }
-    if (roll < 62) {
-        return ENEMY_THREE_HP;
-    }
-    return ENEMY_ONE_HP;
-}
-
-static bool SpawnEnemyNearGrave(Game *game, int graveIndex, EnemyType type)
-{
-    int graveX;
-    int graveY;
-
-    if (!GameGraveyardSpawnPoint(game, graveIndex, &graveX, &graveY)) {
-        return false;
-    }
-
-    for (int radius = 1; radius <= 3; radius++) {
-        for (int dy = -radius; dy <= radius; dy++) {
-            for (int dx = -radius; dx <= radius; dx++) {
-                const int x = graveX + dx;
-                const int y = graveY + dy;
-
-                if (abs(dx) != radius && abs(dy) != radius) {
-                    continue;
-                }
-                if (x <= 0 || x >= game->mapWidth - 1 ||
-                    y <= 0 || y >= game->mapHeight - 1 ||
-                    GameMapIsBlocked(game, x, y) ||
-                    IsEnemyAt(game, x, y)) {
-                    continue;
-                }
-
-                return SpawnEnemyAt(game, type, x, y);
-            }
-        }
-    }
-
-    return false;
-}
-
-void EnemiesSpawnGraveyardWave(Game *game)
-{
-    if (game->mapPhase != MAP_PHASE_GRAVEYARD) {
-        return;
-    }
-
-    for (int graveIndex = 0; graveIndex < 4; graveIndex++) {
-        (void)SpawnEnemyNearGrave(game, graveIndex, RollGraveyardEnemyType(game));
-    }
-}
-
+/* 적 접촉 피해와 거리 맵 기반 추적 이동을 처리 */
 void EnemiesUpdate(Game *game, float dt)
 {
     const int playerX = GameRound(game->player.position.x);
@@ -454,54 +403,27 @@ void EnemiesUpdate(Game *game, float dt)
         }
 
         (void)TryMoveEnemyTowardPlayer(game, enemy, distances);
-        enemy->moveCooldown = enemy->moveDelay *
-            (game->activeMiniEvent == MINI_EVENT_BLOOD_MIST ? 0.62f : 1.0f);
+        enemy->moveCooldown = enemy->moveDelay;
     }
 }
 
-static bool PickupDropAllowed(const Game *game, PickupType type)
+/* 처치 수 증가와 회복의 붕대 20킬 회복 규칙을 한곳에서 처리 */
+static void ApplyKillProgress(Game *game)
 {
-    if (type == PICKUP_VACUUM) {
-        return game->player.level >= 3 || game->elapsed >= 45.0f;
-    }
-    if (type == PICKUP_ROSARY) {
-        return game->elapsed >= 60.0f;
-    }
+    game->player.kills++;
 
-    return true;
+    if (game->player.hpRecoveryLevel > 0 && game->player.hpRecoveryTimer > 0.0f) {
+        game->player.bandageKillCount++;
+        if (game->player.bandageKillCount >= 20) {
+            game->player.bandageKillCount = 0;
+            if (game->player.health < game->player.maxHealth) {
+                game->player.health++;
+            }
+        }
+    }
 }
 
-static PickupType RollBonusPickup(const Game *game)
-{
-    const int diceThreshold = PICKUP_HEAL_PACK_CHANCE + PICKUP_GAMBLER_DICE_CHANCE;
-    const int frenzyThreshold = diceThreshold + PICKUP_FRENZY_MAGAZINE_CHANCE;
-    const int pinataThreshold = frenzyThreshold + PICKUP_PINATA_SKULL_CHANCE;
-    const int vacuumThreshold = pinataThreshold + PICKUP_VACUUM_CHANCE;
-    const int rosaryThreshold = vacuumThreshold + PICKUP_ROSARY_CHANCE;
-    const int roll = rand() % PICKUP_BONUS_ROLL_MAX;
-
-    if (roll < PICKUP_HEAL_PACK_CHANCE) {
-        return PICKUP_HEAL_PACK;
-    }
-    if (roll < diceThreshold) {
-        return PICKUP_GAMBLER_DICE;
-    }
-    if (roll < frenzyThreshold) {
-        return PICKUP_FRENZY_MAGAZINE;
-    }
-    if (roll < pinataThreshold) {
-        return PICKUP_PINATA_SKULL;
-    }
-    if (roll < vacuumThreshold && PickupDropAllowed(game, PICKUP_VACUUM)) {
-        return PICKUP_VACUUM;
-    }
-    if (roll < rosaryThreshold && PickupDropAllowed(game, PICKUP_ROSARY)) {
-        return PICKUP_ROSARY;
-    }
-
-    return PICKUP_XP;
-}
-
+/* 적 처치 시 XP/상자 드롭, 점수, 킬 진행도를 모두 반영 */
 void EnemyDefeat(Game *game, Enemy *enemy)
 {
     if (!enemy->active) {
@@ -509,16 +431,11 @@ void EnemyDefeat(Game *game, Enemy *enemy)
     }
 
     PickupSpawn(game, enemy->position, enemy->xpValue);
-
-    {
-        const PickupType bonusType = RollBonusPickup(game);
-        if (bonusType != PICKUP_XP) {
-            PickupSpawnTyped(game, enemy->position, bonusType, 0);
-        }
+    if ((rand() % PICKUP_BONUS_ROLL_MAX) < PICKUP_TREASURE_CHEST_CHANCE) {
+        PickupSpawnTyped(game, enemy->position, PICKUP_TREASURE_CHEST, 0);
     }
-
     game->player.score += enemy->scoreValue;
-    game->player.kills++;
+    ApplyKillProgress(game);
     enemy->active = false;
 }
 
@@ -535,12 +452,35 @@ void EnemiesDamageInRadius(Game *game, Vec2 center, int radius, int damage)
         if (GameDistanceSquared(enemy->position, center) <= radiusSquared) {
             enemy->health -= damage;
             if (enemy->health <= 0) {
-                PickupSpawn(game, enemy->position, enemy->xpValue);
-                game->player.score += enemy->scoreValue;
-                GameOnKill(game);
-                enemy->active = false;
+                EnemyDefeat(game, enemy);
             }
         }
+    }
+}
+
+/* pickup 슬롯이 꽉 찼을 때 XP 병합/즉시 지급/교체 우선순위를 결정 */
+static Pickup *FindReusablePickupSlot(Game *game, PickupType type, int value)
+{
+    Pickup *emptyTarget = NULL;
+    Pickup *mergeTarget = NULL;
+    Pickup *replaceTarget = NULL;
+    int replacePriority = 1000;
+
+    for (int i = 0; i < MAX_PICKUPS; i++) {
+        Pickup *pickup = &game->pickups[i];
+        if (!pickup->active) {
+            if (emptyTarget == NULL) {
+                emptyTarget = pickup;
+            }
+            continue;
+        }
+
+        if (type == PICKUP_XP &&
+            pickup->type == PICKUP_XP &&
+            mergeTarget == NULL) {
+            mergeTarget = pickup;
+        }
+
         if (PickupPriority(pickup->type) < replacePriority) {
             replaceTarget = pickup;
             replacePriority = PickupPriority(pickup->type);
@@ -552,23 +492,20 @@ void EnemiesDamageInRadius(Game *game, Vec2 center, int radius, int damage)
         return NULL;
     }
 
-    if (type == PICKUP_XP && mergeTarget == NULL) {
+    if (emptyTarget != NULL) {
+        return emptyTarget;
+    }
+
+    if (type == PICKUP_XP) {
         game->player.xp += value;
         game->player.score += value;
         return NULL;
     }
 
-    if (PickupPriority(type) >= replacePriority) {
-        if (replaceTarget != NULL &&
-            replaceTarget->type == PICKUP_XP &&
-            xpValueTarget == NULL) {
+    if (replaceTarget != NULL && PickupPriority(type) >= replacePriority) {
+        if (replaceTarget->type == PICKUP_XP) {
             game->player.xp += replaceTarget->value;
             game->player.score += replaceTarget->value;
-        }
-        else if (replaceTarget != NULL &&
-            replaceTarget->type == PICKUP_XP &&
-            xpValueTarget != NULL) {
-            xpValueTarget->value += replaceTarget->value;
         }
         return replaceTarget;
     }
@@ -596,197 +533,19 @@ void PickupSpawn(Game *game, Vec2 position, int value)
     PickupSpawnTyped(game, position, PICKUP_XP, value);
 }
 
-static int CollectAllXpPickups(Game *game)
-{
-    int collected = 0;
-
-    for (int i = 0; i < MAX_PICKUPS; i++) {
-        Pickup *pickup = &game->pickups[i];
-        if (!pickup->active || pickup->type != PICKUP_XP) {
-            continue;
-        }
-
-        game->player.xp += pickup->value;
-        game->player.score += pickup->value;
-        pickup->active = false;
-        collected++;
-    }
-
-    return collected;
-}
-
-static void DefeatAllEnemies(Game *game)
-{
-    for (int i = 0; i < MAX_ENEMIES; i++) {
-        Enemy *enemy = &game->enemies[i];
-        if (!enemy->active) {
-            continue;
-        }
-
-        EnemyDefeat(game, enemy);
-    }
-}
-
-static void HealPlayer(Game *game, int amount)
-{
-    game->player.health += amount;
-    if (game->player.health > game->player.maxHealth) {
-        game->player.health = game->player.maxHealth;
-    }
-}
-
-static const char *PickupEffectName(PickupType type)
-{
-    switch (type) {
-        case PICKUP_HEAL_PACK:
-            return "Heal Pack";
-        case PICKUP_VACUUM:
-            return "진공";
-        case PICKUP_ROSARY:
-            return "로자리";
-        case PICKUP_FRENZY_MAGAZINE:
-            return "폭주 탄창";
-        case PICKUP_PINATA_SKULL:
-            return "보물상자";
-        case PICKUP_XP:
-            return "XP";
-        case PICKUP_GAMBLER_DICE:
-            return "도박사의 주사위";
-        default:
-            return "알 수 없는 효과";
-    }
-}
-
-static void SetDiceMessage(Game *game, const char *effectName)
-{
-    (void)snprintf(game->diceMessage,
-        sizeof(game->diceMessage),
-        "DICE: %s 효과가 발동했습니다!",
-        effectName);
-    game->diceMessageTimer = 5.0f;
-}
-
-static Vec2 ScatterPosition(const Game *game, Vec2 center, int index, int count, int radius)
-{
-    const float angle = (float)index * 6.28318530718f / (float)count;
-    int x = GameRound(center.x + cosf(angle) * (float)radius);
-    int y = GameRound(center.y + sinf(angle) * (float)radius);
-
-    x = GameClampInt(x, 1, game->mapWidth - 2);
-    y = GameClampInt(y, 1, game->mapHeight - 2);
-
-    if (GameMapIsBlocked(game, x, y)) {
-        x = GameClampInt(GameRound(center.x), 1, game->mapWidth - 2);
-        y = GameClampInt(GameRound(center.y), 1, game->mapHeight - 2);
-    }
-
-    return (Vec2){(float)x, (float)y};
-}
-
-static void SpawnPinataRewards(Game *game, Vec2 center)
-{
-    for (int i = 0; i < 6; i++) {
-        PickupSpawn(game, ScatterPosition(game, center, i, 6, 3), 2 + rand() % 4);
-    }
-    for (int i = 0; i < 4; i++) {
-        PickupSpawn(game, ScatterPosition(game, center, i, 4, 5), 8 + rand() % 8);
-    }
-    for (int i = 0; i < 2; i++) {
-        PickupSpawnTyped(game, ScatterPosition(game, center, i, 2, 2), PICKUP_HEAL_PACK, 0);
-    }
-}
-
-static void UpgradeCurrentWeapon(Game *game)
-{
-    Weapon *weapon = &game->weapons[game->activeWeapon];
-
-    if (weapon->level < 3) {
-        weapon->level++;
-    }
-    weapon->damage += GameClampInt(weapon->damage / 4, 5, 20);
-    weapon->range += 2;
-    weapon->timer = 0.0f;
-}
-
-static void ApplyPickupEffect(Game *game, PickupType type, int value, Vec2 position);
-
-void PickupApplyGamblerDiceEffect(Game *game, int effect)
-{
-    const int resolvedEffect = effect < 0 ? rand() % 4 : effect % 4;
-
-    switch (resolvedEffect) {
-        case 0: /* HP 회복 */
-            HealPlayer(game, GameClampInt(game->player.maxHealth / 2, 5, 10));
-            SetDiceMessage(game, "HP 회복");
-            GameRequestSound(game, SOUND_HEAL_PICKUP);
-            break;
-        case 1: /* 폭발 */
-            game->auraPulseTimer = 0.35f;
-            EnemiesDamageInRadius(game, game->player.position, 7, 55);
-            SetDiceMessage(game, "폭발");
-            GameRequestSound(game, SOUND_POWER_PICKUP);
-            break;
-        case 2: /* 좋은 무기 */
-            UpgradeCurrentWeapon(game);
-            SetDiceMessage(game, "좋은 무기 강화");
-            GameRequestSound(game, SOUND_LEVEL_UP);
-            break;
-        case 3: /* 무작위 pickup 효과 */
-            {
-                static const PickupType randomEffects[] = {
-                    PICKUP_HEAL_PACK,
-                    PICKUP_VACUUM,
-                    PICKUP_ROSARY,
-                    PICKUP_FRENZY_MAGAZINE,
-                    PICKUP_PINATA_SKULL
-                };
-                const int count = (int)(sizeof(randomEffects) / sizeof(randomEffects[0]));
-                const PickupType pickedEffect = randomEffects[rand() % count];
-                SetDiceMessage(game, PickupEffectName(pickedEffect));
-                ApplyPickupEffect(game, pickedEffect, 0, game->player.position);
-            }
-            break;
-        default:
-            break;
-    }
-}
-
+/* pickup 획득 효과를 XP와 보물상자 두 갈래로 제한 */
 static void ApplyPickupEffect(Game *game, PickupType type, int value, Vec2 position)
 {
+    (void)position;
+
     switch (type) {
         case PICKUP_XP:
             game->player.xp += value;
             game->player.score += value;
             GameRequestSound(game, SOUND_XP_PICKUP);
             break;
-        case PICKUP_HEAL_PACK:
-            {
-                const int healAmount = GameClampInt(game->player.maxHealth / 2, 4, 8);
-                HealPlayer(game, healAmount);
-                GameRequestSound(game, SOUND_HEAL_PICKUP);
-            }
-            break;
-        case PICKUP_VACUUM:
-            if (CollectAllXpPickups(game) > 0) {
-                GameRequestSound(game, SOUND_XP_PICKUP);
-            }
-            GameRequestSound(game, SOUND_POWER_PICKUP);
-            break;
-        case PICKUP_ROSARY:
-            DefeatAllEnemies(game);
-            GameRequestSound(game, SOUND_POWER_PICKUP);
-            break;
-        case PICKUP_GAMBLER_DICE:
-            PickupApplyGamblerDiceEffect(game, -1);
-            break;
-        case PICKUP_FRENZY_MAGAZINE:
-            game->frenzyTimer = FRENZY_MAGAZINE_SECONDS;
-            game->frenzyShotTimer = 0.0f;
-            GameRequestSound(game, SOUND_POWER_PICKUP);
-            break;
-        case PICKUP_PINATA_SKULL:
-            SpawnPinataRewards(game, position);
-            GameRequestSound(game, SOUND_POWER_PICKUP);
+        case PICKUP_TREASURE_CHEST:
+            GameStartRewardChoice(game);
             break;
         default:
             break;
@@ -803,6 +562,7 @@ static void CollectPickup(Game *game, Pickup *pickup)
     ApplyPickupEffect(game, type, value, position);
 }
 
+/* pickup 획득 판정과 XP 자석 이동을 한 프레임씩 진행 */
 void PickupsUpdate(Game *game, float dt)
 {
     const float magnetDistance = (float)game->player.magnetRange;

@@ -95,22 +95,30 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="src\game_config.h" />
     <ClInclude Include="src\game.h" />
     <ClInclude Include="src\platform.h" />
+    <ClInclude Include="src\ranking.h" />
+    <ClInclude Include="src\smoke_test.h" />
+    <ClInclude Include="src\ui.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\entities.c" />
     <ClCompile Include="src\game.c" />
     <ClCompile Include="src\main.c" />
     <ClCompile Include="src\platform.c" />
+    <ClCompile Include="src\ranking.c" />
+    <ClCompile Include="src\smoke_test.c" />
     <ClCompile Include="src\ui.c" />
     <ClCompile Include="src\weapons.c" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="assets\audio\game_music.mp3" />
     <None Include="assets\audio\game_over.wav" />
     <None Include="assets\audio\heal_pickup.wav" />
     <None Include="assets\audio\hit.wav" />
     <None Include="assets\audio\level_up.wav" />
+    <None Include="assets\audio\menu_music.mp3" />
     <None Include="assets\audio\power_pickup.wav" />
     <None Include="assets\audio\shoot.wav" />
     <None Include="assets\audio\ui_confirm.wav" />

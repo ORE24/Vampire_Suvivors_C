@@ -17,10 +17,22 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\game_config.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="src\game.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\platform.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ranking.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\smoke_test.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -37,6 +49,12 @@
     <ClCompile Include="src\platform.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\ranking.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\smoke_test.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="src\ui.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -45,6 +63,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <None Include="assets\audio\game_music.mp3">
+      <Filter>Assets\Audio</Filter>
+    </None>
     <None Include="assets\audio\game_over.wav">
       <Filter>Assets\Audio</Filter>
     </None>
@@ -55,6 +76,9 @@
       <Filter>Assets\Audio</Filter>
     </None>
     <None Include="assets\audio\level_up.wav">
+      <Filter>Assets\Audio</Filter>
+    </None>
+    <None Include="assets\audio\menu_music.mp3">
       <Filter>Assets\Audio</Filter>
     </None>
     <None Include="assets\audio\power_pickup.wav">
