@@ -270,35 +270,42 @@ static void DrawGridLine(const Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH], int y, 
     printf("\033[0m\n");
 }
 
-/* 첫 화면: 목표와 주요 조작을 한 번에 보여준다 */
+/* 첫 화면: 뱀파이어 서바이버즈 스타일 타이틀 */
 void UiDrawTitle(void)
 {
     BeginCleanFrame();
-    printf("\033[1;36m");
-    printf("======================================================================\n");
-    printf("                    TERMINAL SURVIVORS: CRYPT MVP                    \n");
-    printf("======================================================================\n");
-    printf("\033[0m\n");
-    printf("터미널 생존 게임입니다.\n\n");
-    printf("\033[1;37m목표\033[0m\n");
-    printf("  5분 동안 생존하면 GAME CLEAR가 뜨고 랭킹 등록으로 넘어갈 수 있습니다.\n\n");
-    printf("\033[1;37m조작\033[0m\n");
-    printf("  WASD / 방향키       : 이동\n");
-    printf("  1, 2, 3 또는 Enter  : 레벨업 보상 선택\n");
-    printf("  1 / 2               : 난이도 선택\n");
-    printf("  R                   : 랭킹 / 재시작\n");
-    printf("  Esc                 : 일시정지 / 재개\n");
-    printf("  M                   : 사운드 토글\n");
-    printf("  Q                   : 종료\n");
-    printf("  타이틀에서 Esc      : 게임 종료\n\n");
-    printf("\033[1;33mS 또는 Enter 게임시작  R 랭킹\033[0m\n");
+
+    printf("\033[1;31m");
+    printf("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n");
+    printf("║                                                                                              ║\n");
+    printf("║                                                                                              ║\n");
+    printf("║          V  A  M  P  I  R  E      S  U  R  V  I  V  O  R  S                                ║\n");
+    printf("║                                                                                              ║\n");
+    printf("║                      ~  T E R M I N A L   E D I T I O N  ~                                  ║\n");
+    printf("║                                                                                              ║\n");
+    printf("║                                                                                              ║\n");
+    printf("║  ┌─────────────────────┐  ┌──────────────────────────────────────┐  ┌────────────────────┐  ║\n");
+    printf("║  │                     │  │                                      │  │                    │  ║\n");
+    printf("║  │    [ 이  동 ]       │  │          [ 게   임 ]                 │  │    [ 기  타 ]      │  ║\n");
+    printf("║  │                     │  │                                      │  │                    │  ║\n");
+    printf("║  │  WASD / 방향키      │  │  5분동안 몬스터를 피해 생존하시오    │  │  R  랭킹 / 재시작  │  ║\n");
+    printf("║  │                     │  │                                      │  │  Q  게임 종료      │  ║\n");
+    printf("║  └─────────────────────┘  └──────────────────────────────────────┘  └────────────────────┘  ║\n");
+    printf("║                                                                                              ║\n");
+    printf("║                                                                                              ║\n");
+    printf("║                           ▶   S  시  작  하  기   ◀                                         ║\n");
+    printf("║                          ───────────────────────────                                        ║\n");
+    printf("║                                                                                              ║\n");
+    printf("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n");
+    printf("\033[0m");
+
     EndFrame();
 }
 
 void UiDrawSetup(GameDifficulty selectedDifficulty)
 {
     BeginCleanFrame();
-    printf("\033[1;36m============================== SETUP ================================\033[0m\n\n");
+    printf("\033[1;31m============================== SETUP ================================\033[0m\n\n");
     printf("게임 시작 전 난이도를 선택하세요.\n\n");
     printf("%s[1] 이지\033[0m  HP 14, 느린 웨이브, 늦은 흡혈귀\n",
         selectedDifficulty == DIFFICULTY_EASY ? "\033[1;32m> " : "  ");
