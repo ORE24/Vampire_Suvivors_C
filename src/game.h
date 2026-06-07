@@ -127,10 +127,6 @@ typedef struct Projectile {
     float lifetime;
     int pierce;
     int areaHit;       /* 0=단일, 1=범위(3x3) */
-    bool orbit;        /* true = 플레이어 주변 궤도 회전 */
-    float orbitAngle;  /* 현재 각도 (radians) */
-    float orbitRadius;
-    float orbitHitCooldown; /* 궤도탄 재타격 쿨타임 */
     char glyph;
 } Projectile;
 
