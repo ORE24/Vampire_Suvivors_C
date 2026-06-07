@@ -64,33 +64,7 @@ static void SpawnProjectile(Game *game, const Weapon *weapon, Vec2 direction, fl
         projectile->lifetime = lifetime;
         projectile->pierce = pierce;
         projectile->areaHit = areaHit;
-        projectile->orbit = false;
-        projectile->orbitAngle = 0.0f;
-        projectile->orbitRadius = 0.0f;
-        projectile->orbitHitCooldown = 0.0f;
         projectile->glyph = weapon->glyph;
-        return;
-    }
-}
-
-static void SpawnOrbitProjectile(Game *game, const Weapon *weapon, float angle, float radius)
-{
-    for (int i = 0; i < MAX_PROJECTILES; i++) {
-        Projectile *p = &game->projectiles[i];
-        if (p->active) continue;
-        p->active           = true;
-        p->orbit            = true;
-        p->orbitAngle       = angle;
-        p->orbitRadius      = radius;
-        p->orbitHitCooldown = 0.0f;
-        p->position.x       = game->player.position.x + cosf(angle) * radius;
-        p->position.y       = game->player.position.y + sinf(angle) * radius;
-        p->velocity         = (Vec2){0.0f, 0.0f};
-        p->damage           = weapon->damage;
-        p->lifetime         = 999.0f;
-        p->pierce           = 999;
-        p->areaHit          = 0;
-        p->glyph            = weapon->glyph;
         return;
     }
 }
@@ -122,54 +96,19 @@ static bool ProjectilePathHitsWall(const Game *game, Vec2 from, Vec2 to)
     return false;
 }
 
-/* ○ 원형: Lv1~2 조준 1발 / Lv3~6 궤도 1링 / Lv7 30도씩 회전 고속 발사 */
+/* ○ 원형: 가장 가까운 적 조준 1발 / Lv7 30도씩 회전 고속 발사 */
 static void FireCircle(Game *game, Weapon *weapon)
 {
     if (weapon->level >= 7) {
         static float circleAngle = 0.0f;
-        int i;
-        /* Lv.7: 궤도탄 소멸 후 30도씩 시계방향 회전 발사 */
-        for (i = 0; i < MAX_PROJECTILES; i++) {
-            if (game->projectiles[i].active && game->projectiles[i].orbit)
-                game->projectiles[i].active = false;
-        }
-        {
-            const Vec2 dir = {cosf(circleAngle), sinf(circleAngle)};
-            SpawnProjectile(game, weapon, dir, 15.0f, 2.0f, 1, 0);
-        }
+        const Vec2 dir = {cosf(circleAngle), sinf(circleAngle)};
+        SpawnProjectile(game, weapon, dir, 15.0f, 2.0f, 1, 0);
         circleAngle += PI / 6.0f;
         if (circleAngle >= 2.0f * PI) circleAngle -= 2.0f * PI;
         GameRequestSound(game, SOUND_SHOOT);
         return;
     }
 
-    if (weapon->level >= 3) {
-        static const float ORBIT_RADIUS = 5.0f;
-        const int targetCount = (int)(5.0f * game->player.attackSpeedMult + 0.5f);
-        int count = 0;
-        int i;
-
-        for (i = 0; i < MAX_PROJECTILES; i++) {
-            Projectile *p = &game->projectiles[i];
-            if (p->active && p->orbit && fabsf(p->orbitRadius - ORBIT_RADIUS) < 0.1f)
-                count++;
-        }
-        if (count < targetCount) {
-            /* 기존 궤도탄 전부 제거 후 재배치 */
-            for (i = 0; i < MAX_PROJECTILES; i++) {
-                if (game->projectiles[i].active && game->projectiles[i].orbit)
-                    game->projectiles[i].active = false;
-            }
-            for (i = 0; i < targetCount; i++) {
-                float angle = (float)i * (2.0f * PI / (float)targetCount);
-                SpawnOrbitProjectile(game, weapon, angle, ORBIT_RADIUS);
-            }
-            GameRequestSound(game, SOUND_SHOOT);
-        }
-        return;
-    }
-
-    /* Lv1~2: 가장 가까운 적에게 조준 1발 */
     {
         const int targetIndex = FindNearestEnemy(game, weapon->range);
         Vec2 direction;
@@ -247,34 +186,31 @@ static void FireSquare(Game *game, Weapon *weapon)
     GameRequestSound(game, SOUND_SHOOT);
 }
 
-/* ★ 별: 랜덤 방향 레이저 (그 줄 전체 적 즉시 피해) / Lv.7: 가로+세로 동시 */
+/* ★ 별: 상하좌우 중 1방향 레이저 / Lv.7: 4방향 동시 */
 static void FireStar(Game *game, Weapon *weapon)
 {
     const int playerX = GameRound(game->player.position.x);
     const int playerY = GameRound(game->player.position.y);
-    bool doHorizontal;
-    bool doVertical;
     int i;
 
+    game->laser.active  = true;
+    game->laser.timer   = 0.4f;
+    game->laser.playerX = playerX;
+    game->laser.playerY = playerY;
+
     if (weapon->level >= 7) {
-        /* Lv.7: 가로 + 세로 동시 레이저 */
-        doHorizontal = true;
-        doVertical   = true;
+        game->laser.goLeft  = true;
+        game->laser.goRight = true;
+        game->laser.goUp    = true;
+        game->laser.goDown  = true;
     } else {
-        /* 일반: 가로 또는 세로 랜덤 */
-        doHorizontal = (rand() % 2 == 0);
-        doVertical   = !doHorizontal;
+        const int dir = rand() % 4; /* 0=왼쪽 1=오른쪽 2=위 3=아래 */
+        game->laser.goLeft  = (dir == 0);
+        game->laser.goRight = (dir == 1);
+        game->laser.goUp    = (dir == 2);
+        game->laser.goDown  = (dir == 3);
     }
 
-    /* 레이저 시각 효과 설정 */
-    game->laser.active     = true;
-    game->laser.timer      = 0.4f;
-    game->laser.horizontal = doHorizontal;
-    game->laser.vertical   = doVertical;
-    game->laser.row        = playerY;
-    game->laser.col        = playerX;
-
-    /* 레이저 범위 내 모든 적 즉시 피해 */
     for (i = 0; i < MAX_ENEMIES; i++) {
         Enemy *enemy = &game->enemies[i];
         if (!enemy->active) continue;
@@ -283,8 +219,10 @@ static void FireStar(Game *game, Weapon *weapon)
             const int ey = GameRound(enemy->position.y);
             bool hit = false;
 
-            if (doHorizontal && ey == playerY) hit = true;
-            if (doVertical   && ex == playerX) hit = true;
+            if (game->laser.goLeft  && ey == playerY && ex < playerX) hit = true;
+            if (game->laser.goRight && ey == playerY && ex > playerX) hit = true;
+            if (game->laser.goUp    && ex == playerX && ey < playerY) hit = true;
+            if (game->laser.goDown  && ex == playerX && ey > playerY) hit = true;
 
             if (hit) {
                 enemy->health -= weapon->damage;
@@ -301,14 +239,6 @@ static void FireStar(Game *game, Weapon *weapon)
 /* 현재 장착 무기 발사 + 부패한 혜성 버스트 처리 */
 void WeaponsUpdate(Game *game, float dt)
 {
-    /* 피의 고리가 아닌 다른 무기로 전환되면 궤도탄 소멸 */
-    if (game->activeWeapon != WEAPON_MAGIC_BOLT) {
-        for (int i = 0; i < MAX_PROJECTILES; i++) {
-            if (game->projectiles[i].active && game->projectiles[i].orbit)
-                game->projectiles[i].active = false;
-        }
-    }
-
     Weapon *weapon = &game->weapons[game->activeWeapon];
     float effectiveCooldown;
 
@@ -371,15 +301,6 @@ void ProjectilesUpdate(Game *game, float dt)
             continue;
         }
 
-        if (projectile->orbit) {
-            projectile->orbitAngle += 2.2f * dt;
-            projectile->position.x = game->player.position.x + cosf(projectile->orbitAngle) * projectile->orbitRadius;
-            projectile->position.y = game->player.position.y + sinf(projectile->orbitAngle) * projectile->orbitRadius;
-            if (projectile->orbitHitCooldown > 0.0f)
-                projectile->orbitHitCooldown -= dt;
-            continue;
-        }
-
         {
             const Vec2 previousPosition = projectile->position;
             const Vec2 nextPosition = GameAdd(projectile->position, GameScale(projectile->velocity, dt));
@@ -405,11 +326,6 @@ void CombatResolve(Game *game)
             continue;
         }
 
-        /* 궤도탄: 히트 쿨타임 중이면 충돌 검사 생략 */
-        if (projectile->orbit && projectile->orbitHitCooldown > 0.0f) {
-            continue;
-        }
-
         for (int enemyIndex = 0; enemyIndex < MAX_ENEMIES; enemyIndex++) {
             Enemy *enemy = &game->enemies[enemyIndex];
 
@@ -421,15 +337,7 @@ void CombatResolve(Game *game)
                 continue;
             }
 
-            if (projectile->orbit) {
-                /* 궤도탄: 소멸 없이 히트 쿨타임만 부여 (공격속도 반영) */
-                const float atkMult = game->player.attackSpeedMult > 0.0f ? game->player.attackSpeedMult : 1.0f;
-                enemy->health -= projectile->damage;
-                projectile->orbitHitCooldown = 0.5f / atkMult;
-                if (enemy->health <= 0) {
-                    EnemyDefeat(game, enemy);
-                }
-            } else if (projectile->areaHit > 0) {
+            if (projectile->areaHit > 0) {
                 /* 3x3 범위 타격 */
                 EnemiesDamageInRadius(game, projectile->position, 1, projectile->damage);
                 projectile->active = false;

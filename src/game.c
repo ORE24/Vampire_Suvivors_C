@@ -320,11 +320,9 @@ void GameInit(Game *game, GameDifficulty difficulty)
     game->weapons[WEAPON_STAR_BURST] =
         (Weapon){WEAPON_STAR_BURST, 0, 40, 1, 14, 2.50f, 0.0f, '*', 0, 0.0f, {0.0f, 0.0f}};
 
-    /* 레이저 / 보물상자 초기화 */
+    /* 레이저 초기화 */
     game->laser.active = false;
     game->laser.timer  = 0.0f;
-    game->chest.active = false;
-    game->chestTimer   = 40.0f;  /* 첫 상자 40초 후 스폰 */
 
     game->elapsed = 0.0f;
     game->speedWarningTimer = 0.0f;
@@ -434,7 +432,7 @@ void GameUpdate(Game *game, const InputState *input, float dt)
         return;
     }
 
-    if (game->mode == GAME_MODE_LEVEL_UP || game->mode == GAME_MODE_CHEST) {
+    if (game->mode == GAME_MODE_LEVEL_UP) {
         const int previousUpgrade = game->selectedUpgrade;
 
         if (input->left || input->up) {
@@ -495,29 +493,6 @@ void GameUpdate(Game *game, const InputState *input, float dt)
     }
 
     PlayerUpdate(game, input, dt);
-
-    /* 보물상자 타이머: 40초마다 새 상자 스폰 (이전 상자 자동 소멸) */
-    game->chestTimer -= dt;
-    if (game->chestTimer <= 0.0f) {
-        game->chestTimer = 40.0f;
-        game->chest.active = true;
-        do {
-            game->chest.position.x = (float)(1 + rand() % (game->mapWidth  - 2));
-            game->chest.position.y = (float)(1 + rand() % (game->mapHeight - 2));
-        } while (GameMapIsBlocked(game,
-                    GameRound(game->chest.position.x),
-                    GameRound(game->chest.position.y)));
-    }
-
-    /* 보물상자 획득 판정 */
-    if (game->chest.active &&
-        GameDistanceSquared(game->player.position, game->chest.position) <= 0.5f) {
-        game->chest.active = false;
-        GenerateUpgrades(game);
-        game->mode = GAME_MODE_CHEST;
-        GameRequestSound(game, SOUND_LEVEL_UP);
-        return;
-    }
 
     /* 레이저 시각 효과 타이머 */
     if (game->laser.active) {
