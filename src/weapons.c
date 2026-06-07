@@ -186,7 +186,7 @@ static void FireSquare(Game *game, Weapon *weapon)
     GameRequestSound(game, SOUND_SHOOT);
 }
 
-/* ★ 별: 상하좌우 4방향 레이저 */
+/* ★ 별: 상하좌우 중 1방향 레이저 / Lv.7: 4방향 동시 */
 static void FireStar(Game *game, Weapon *weapon)
 {
     const int playerX = GameRound(game->player.position.x);
@@ -197,10 +197,19 @@ static void FireStar(Game *game, Weapon *weapon)
     game->laser.timer   = 0.4f;
     game->laser.playerX = playerX;
     game->laser.playerY = playerY;
-    game->laser.goLeft  = true;
-    game->laser.goRight = true;
-    game->laser.goUp    = true;
-    game->laser.goDown  = true;
+
+    if (weapon->level >= 7) {
+        game->laser.goLeft  = true;
+        game->laser.goRight = true;
+        game->laser.goUp    = true;
+        game->laser.goDown  = true;
+    } else {
+        const int dir = rand() % 4; /* 0=왼쪽 1=오른쪽 2=위 3=아래 */
+        game->laser.goLeft  = (dir == 0);
+        game->laser.goRight = (dir == 1);
+        game->laser.goUp    = (dir == 2);
+        game->laser.goDown  = (dir == 3);
+    }
 
     for (i = 0; i < MAX_ENEMIES; i++) {
         Enemy *enemy = &game->enemies[i];
