@@ -185,29 +185,29 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
         }
     }
 
-    /* 보물상자 렌더링 */
-    if (game->chest.active) {
-        PutCell(game, grid,
-            GameRound(game->chest.position.x),
-            GameRound(game->chest.position.y),
-            '$', CELL_PROJECTILE);
-    }
-
-    /* 레이저 렌더링: 해당 행/열 전체를 'r'로 표시 */
+    /* 레이저 렌더링: 플레이어 기준 해당 방향만 'r'로 표시 */
     if (game->laser.active) {
-        if (game->laser.horizontal) {
-            for (int x = 1; x < game->mapWidth - 1; x++) {
-                if (!GameMapIsBlocked(game, x, game->laser.row)) {
-                    PutCell(game, grid, x, game->laser.row, 'r', CELL_PROJECTILE);
-                }
-            }
+        const int px = game->laser.playerX;
+        const int py = game->laser.playerY;
+        if (game->laser.goLeft) {
+            for (int x = 1; x < px; x++)
+                if (!GameMapIsBlocked(game, x, py))
+                    PutCell(game, grid, x, py, 'r', CELL_PROJECTILE);
         }
-        if (game->laser.vertical) {
-            for (int y = 1; y < game->mapHeight - 1; y++) {
-                if (!GameMapIsBlocked(game, game->laser.col, y)) {
-                    PutCell(game, grid, game->laser.col, y, 'r', CELL_PROJECTILE);
-                }
-            }
+        if (game->laser.goRight) {
+            for (int x = px + 1; x < game->mapWidth - 1; x++)
+                if (!GameMapIsBlocked(game, x, py))
+                    PutCell(game, grid, x, py, 'r', CELL_PROJECTILE);
+        }
+        if (game->laser.goUp) {
+            for (int y = 1; y < py; y++)
+                if (!GameMapIsBlocked(game, px, y))
+                    PutCell(game, grid, px, y, 'r', CELL_PROJECTILE);
+        }
+        if (game->laser.goDown) {
+            for (int y = py + 1; y < game->mapHeight - 1; y++)
+                if (!GameMapIsBlocked(game, px, y))
+                    PutCell(game, grid, px, y, 'r', CELL_PROJECTILE);
         }
     }
 
@@ -440,13 +440,9 @@ void UiDrawGame(const Game *game)
     }
 
     /* 모드별 하단 표시 */
-    if (game->mode == GAME_MODE_LEVEL_UP || game->mode == GAME_MODE_CHEST) {
+    if (game->mode == GAME_MODE_LEVEL_UP) {
         int i;
-        if (game->mode == GAME_MODE_CHEST) {
-            printf("\033[1;33m  ======= 보물상자 발견! ========\033[0m\n");
-        } else {
-            printf("\033[1;33m  ========== LEVEL UP! ==========\033[0m\n");
-        }
+        printf("\033[1;33m  ========== LEVEL UP! ==========\033[0m\n");
         for (i = 0; i < UPGRADE_CHOICES; i++) {
             const bool sel = (game->selectedUpgrade == i);
             printf("  %s\033[1;37m[%d]\033[0m ",
@@ -463,7 +459,7 @@ void UiDrawGame(const Game *game)
     } else if (game->mode == GAME_MODE_GAME_OVER) {
         printf("\033[1;31mGAME OVER\033[0m  HP가 0이 됐습니다.  R 재시작  B/Esc 타이틀\033[K\n");
     } else if (game->mode == GAME_MODE_VICTORY) {
-        printf("\033[1;32mGAME CLEAR\033[0m  7분 생존 성공!  Enter/R 랭킹 등록  B/Esc 타이틀\033[K\n");
+        printf("\033[1;32mGAME CLEAR\033[0m  5분 생존 성공!  Enter/R 랭킹 등록  B/Esc 타이틀\033[K\n");
     } else {
         printf("이동으로 회피하세요. 공격은 자동입니다.  Esc 일시정지  Q 게임종료  M 사운드\033[K\n");
     }

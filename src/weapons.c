@@ -247,34 +247,31 @@ static void FireSquare(Game *game, Weapon *weapon)
     GameRequestSound(game, SOUND_SHOOT);
 }
 
-/* ★ 별: 랜덤 방향 레이저 (그 줄 전체 적 즉시 피해) / Lv.7: 가로+세로 동시 */
+/* ★ 별: 상하좌우 중 1방향 레이저 / Lv.7: 4방향 동시 */
 static void FireStar(Game *game, Weapon *weapon)
 {
     const int playerX = GameRound(game->player.position.x);
     const int playerY = GameRound(game->player.position.y);
-    bool doHorizontal;
-    bool doVertical;
     int i;
 
+    game->laser.active  = true;
+    game->laser.timer   = 0.4f;
+    game->laser.playerX = playerX;
+    game->laser.playerY = playerY;
+
     if (weapon->level >= 7) {
-        /* Lv.7: 가로 + 세로 동시 레이저 */
-        doHorizontal = true;
-        doVertical   = true;
+        game->laser.goLeft  = true;
+        game->laser.goRight = true;
+        game->laser.goUp    = true;
+        game->laser.goDown  = true;
     } else {
-        /* 일반: 가로 또는 세로 랜덤 */
-        doHorizontal = (rand() % 2 == 0);
-        doVertical   = !doHorizontal;
+        const int dir = rand() % 4; /* 0=왼쪽 1=오른쪽 2=위 3=아래 */
+        game->laser.goLeft  = (dir == 0);
+        game->laser.goRight = (dir == 1);
+        game->laser.goUp    = (dir == 2);
+        game->laser.goDown  = (dir == 3);
     }
 
-    /* 레이저 시각 효과 설정 */
-    game->laser.active     = true;
-    game->laser.timer      = 0.4f;
-    game->laser.horizontal = doHorizontal;
-    game->laser.vertical   = doVertical;
-    game->laser.row        = playerY;
-    game->laser.col        = playerX;
-
-    /* 레이저 범위 내 모든 적 즉시 피해 */
     for (i = 0; i < MAX_ENEMIES; i++) {
         Enemy *enemy = &game->enemies[i];
         if (!enemy->active) continue;
@@ -283,8 +280,10 @@ static void FireStar(Game *game, Weapon *weapon)
             const int ey = GameRound(enemy->position.y);
             bool hit = false;
 
-            if (doHorizontal && ey == playerY) hit = true;
-            if (doVertical   && ex == playerX) hit = true;
+            if (game->laser.goLeft  && ey == playerY && ex < playerX) hit = true;
+            if (game->laser.goRight && ey == playerY && ex > playerX) hit = true;
+            if (game->laser.goUp    && ex == playerX && ey < playerY) hit = true;
+            if (game->laser.goDown  && ex == playerX && ey > playerY) hit = true;
 
             if (hit) {
                 enemy->health -= weapon->damage;
