@@ -47,7 +47,7 @@ typedef enum SoundFlag {
 } SoundFlag;
 
 typedef enum PickupType {
-    PICKUP_XP = 0,
+    PICKUP_XP = 0, // 0이라고 정의 안해줘도 됨(나중에 없애는게 더 깔끔할 듯)
     PICKUP_TREASURE_CHEST
 } PickupType;
 
