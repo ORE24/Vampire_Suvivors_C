@@ -189,6 +189,7 @@ int main(int argc, char **argv)
                 GameInit(&game, selectedDifficulty);
                 scoreSaved = false;
                 screen = SCREEN_GAME;
+                UiClearScreen();
                 appPendingSounds |= SOUND_UI_CONFIRM;
             }
 

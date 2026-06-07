@@ -5,6 +5,7 @@
 #include "platform.h"
 #include "ranking.h"
 
+void UiClearScreen(void);
 void UiDrawTitle(void);
 void UiDrawSetup(GameDifficulty selectedDifficulty);
 void UiDrawRanking(const RankingEntry entries[MAX_RANKINGS], int count);

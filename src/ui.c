@@ -56,12 +56,17 @@ static const char *ColorCode(CellColor color)
     return "\033[0m";
 }
 
+void UiClearScreen(void)
+{
+    printf("\033[2J\033[H");
+    fflush(stdout);
+}
+
 /* 게임 화면용: 커서 숨기고 맨 위로 이동 (깜빡임 최소화) */
 static void BeginFrame(void)
 {
     printf("\033[?25l");   /* 커서 숨기기 → 위아래 흔들림 방지 */
     printf("\033[H");      /* 커서를 맨 위로 */
-    printf("\033[J");      /* 이번 프레임보다 긴 이전 텍스트 잔상 제거 */
 }
 
 /* 메뉴/랭킹용: 전체 화면 완전히 지운 뒤 그리기 (이전 화면 잔상 제거) */
@@ -443,9 +448,9 @@ void UiDrawGame(const Game *game)
     if (game->mode == GAME_MODE_LEVEL_UP || game->mode == GAME_MODE_CHEST) {
         int i;
         if (game->mode == GAME_MODE_CHEST) {
-            printf("\033[1;33m  ======= 보물상자 발견! ========\033[0m\n");
+            printf("\033[1;33m  ======= 보물상자 발견! ========\033[0m\033[K\n");
         } else {
-            printf("\033[1;33m  ========== LEVEL UP! ==========\033[0m\n");
+            printf("\033[1;33m  ========== LEVEL UP! ==========\033[0m\033[K\n");
         }
         for (i = 0; i < UPGRADE_CHOICES; i++) {
             const bool sel = (game->selectedUpgrade == i);
@@ -453,10 +458,10 @@ void UiDrawGame(const Game *game)
                 sel ? "\033[1;36m>\033[0m" : " ",
                 i + 1);
             if (sel) { printf("\033[1;36m"); }
-            printf("%-22s\033[0m\n", game->upgrades[i].name);
+            printf("%-22s\033[0m\033[K\n", game->upgrades[i].name);
             printf("       \033[2;37m%s\033[0m\033[K\n", game->upgrades[i].description);
         }
-        printf("  \033[1;33m================================\033[0m\n");
+        printf("  \033[1;33m================================\033[0m\033[K\n");
         printf("  1~3 키 또는 <-> 방향키로 선택, Enter 확인\033[K\n");
     } else if (game->mode == GAME_MODE_PAUSED) {
         printf("\033[1;33mPAUSED\033[0m  Esc 재개  Q 게임종료\033[K\n");
