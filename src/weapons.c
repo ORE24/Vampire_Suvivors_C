@@ -80,29 +80,40 @@ static bool ProjectilePathHitsWall(const Game *game, Vec2 from, Vec2 to)
     return false;
 }
 
-/* ○ 원형: 가장 가까운 적에게 1발 조준 발사 (Dmg20, 쿨1.0s) */
+/* ○ 원형: 가장 가까운 적에게 1발 조준 발사 / Lv.7: 30도씩 회전 발사 (빠른 속도) */
 static void FireCircle(Game *game, Weapon *weapon)
 {
-    const int targetIndex = FindNearestEnemy(game, weapon->range);
-    Vec2 direction;
+    static float circleAngle = 0.0f;
 
-    if (targetIndex < 0) {
-        return;
+    if (weapon->level >= 7) {
+        /* Lv.7: 적 조준 없이 30도씩 시계방향 회전 발사 */
+        const Vec2 dir = {cosf(circleAngle), sinf(circleAngle)};
+        SpawnProjectile(game, weapon, dir, 15.0f, 2.0f, 1);
+        circleAngle += PI / 6.0f;   /* 30도 */
+        if (circleAngle >= 2.0f * PI) {
+            circleAngle -= 2.0f * PI;
+        }
+    } else {
+        const int targetIndex = FindNearestEnemy(game, weapon->range);
+        Vec2 direction;
+        if (targetIndex < 0) {
+            return;
+        }
+        direction.x = game->enemies[targetIndex].position.x - game->player.position.x;
+        direction.y = game->enemies[targetIndex].position.y - game->player.position.y;
+        SpawnProjectile(game, weapon, direction, 13.0f, 1.8f, 1);
     }
-
-    direction.x = game->enemies[targetIndex].position.x - game->player.position.x;
-    direction.y = game->enemies[targetIndex].position.y - game->player.position.y;
-    SpawnProjectile(game, weapon, direction, 13.0f, 1.8f, 1);
     GameRequestSound(game, SOUND_ATTACK);
 }
 
-/* △ 삼각형: 가장 가까운 적 방향으로 3발 부채꼴 발사 (Dmg8 x3, 쿨0.4s) */
+/* △ 삼각형: 3발 부채꼴 / Lv.7: 5발 부채꼴 */
 static void FireTriangle(Game *game, Weapon *weapon)
 {
     const int targetIndex = FindNearestEnemy(game, weapon->range);
     Vec2 direction;
     float baseAngle;
     int i;
+    int shotCount;
 
     if (targetIndex < 0) {
         return;
@@ -113,70 +124,108 @@ static void FireTriangle(Game *game, Weapon *weapon)
     direction = GameNormalize(direction);
     baseAngle = atan2f(direction.y, direction.x);
 
-    /* 0, -0.2rad, +0.2rad 세 방향 */
-    for (i = -1; i <= 1; i++) {
-        const float angle = baseAngle + (float)i * 0.2f;
+    shotCount = (weapon->level >= 7) ? 5 : 3;
+
+    /* 중심 기준 대칭 배치: 3발=-1,0,1 / 5발=-2,-1,0,1,2 (간격 0.2rad) */
+    for (i = 0; i < shotCount; i++) {
+        const float offset = (float)(i - shotCount / 2) * 0.2f;
+        const float angle  = baseAngle + offset;
         SpawnProjectile(game, weapon, (Vec2){cosf(angle), sinf(angle)}, 13.0f, 1.8f, 1);
     }
 
     GameRequestSound(game, SOUND_ATTACK);
 }
 
-/* □ 사각형: 상하좌우 4방향 동시 발사 (Dmg15 x4, 쿨1.0s) */
+/* □ 사각형: 상하좌우 4방향 / Lv.7: 8방향 (45도 간격 추가) */
 static void FireSquare(Game *game, Weapon *weapon)
 {
-    static const Vec2 dirs[4] = {
-        { 1.0f,  0.0f},  /* 오른쪽 */
-        {-1.0f,  0.0f},  /* 왼쪽   */
-        { 0.0f,  1.0f},  /* 아래   */
-        { 0.0f, -1.0f}   /* 위     */
+    static const Vec2 dirs4[4] = {
+        { 1.0f,    0.0f},   /* 오른쪽 */
+        {-1.0f,    0.0f},   /* 왼쪽   */
+        { 0.0f,    1.0f},   /* 아래   */
+        { 0.0f,   -1.0f}    /* 위     */
+    };
+    /* 대각선 4방향 (정규화된 값) */
+    static const Vec2 dirs8[8] = {
+        { 1.0f,    0.0f},
+        {-1.0f,    0.0f},
+        { 0.0f,    1.0f},
+        { 0.0f,   -1.0f},
+        { 0.707f,  0.707f},
+        { 0.707f, -0.707f},
+        {-0.707f,  0.707f},
+        {-0.707f, -0.707f}
     };
     int i;
+    int count;
+    const Vec2 *dirs;
 
-    for (i = 0; i < 4; i++) {
+    if (weapon->level >= 7) {
+        count = 8;
+        dirs  = dirs8;
+    } else {
+        count = 4;
+        dirs  = dirs4;
+    }
+
+    for (i = 0; i < count; i++) {
         SpawnProjectile(game, weapon, dirs[i], 13.0f, 1.8f, 1);
     }
 
     GameRequestSound(game, SOUND_ATTACK);
 }
 
-/* ★ 별: 가장 가까운 적 2명에게 강타 2발 (#8, 동거리 시 랜덤) */
+/* ★ 별: 랜덤 방향 레이저 (그 줄 전체 적 즉시 피해) / Lv.7: 가로+세로 동시 */
 static void FireStar(Game *game, Weapon *weapon)
 {
-    const float maxDistSq = (float)(weapon->range * weapon->range);
-    int best[2]       = {-1,   -1};
-    float bestDist[2] = {1e30f, 1e30f};
+    const int playerX = GameRound(game->player.position.x);
+    const int playerY = GameRound(game->player.position.y);
+    bool doHorizontal;
+    bool doVertical;
     int i;
 
-    for (i = 0; i < MAX_ENEMIES; i++) {
-        const Enemy *e = &game->enemies[i];
-        float d;
-        if (!e->active) continue;
-        d = GameDistanceSquared(game->player.position, e->position);
-        if (d > maxDistSq) continue;
+    if (weapon->level >= 7) {
+        /* Lv.7: 4방향 (가로 + 세로) 동시 레이저 */
+        doHorizontal = true;
+        doVertical   = true;
+    } else {
+        /* 일반: 가로 또는 세로 랜덤 */
+        doHorizontal = (rand() % 2 == 0);
+        doVertical   = !doHorizontal;
+    }
 
-        if (d < bestDist[0]) {
-            bestDist[1] = bestDist[0]; best[1] = best[0];
-            bestDist[0] = d;           best[0] = i;
-        } else if (d < bestDist[1]) {
-            bestDist[1] = d; best[1] = i;
+    /* 레이저 시각 효과 설정 */
+    game->laser.active     = true;
+    game->laser.timer      = 0.4f;
+    game->laser.horizontal = doHorizontal;
+    game->laser.vertical   = doVertical;
+    game->laser.row        = playerY;
+    game->laser.col        = playerX;
+
+    /* 레이저 범위 내 모든 적 즉시 피해 */
+    for (i = 0; i < MAX_ENEMIES; i++) {
+        Enemy *enemy = &game->enemies[i];
+        if (!enemy->active) continue;
+        {
+            const int ex = GameRound(enemy->position.x);
+            const int ey = GameRound(enemy->position.y);
+            bool hit = false;
+
+            if (doHorizontal && ey == playerY) hit = true;
+            if (doVertical   && ex == playerX) hit = true;
+
+            if (hit) {
+                enemy->health -= weapon->damage;
+                if (enemy->health <= 0) {
+                    PickupSpawn(game, enemy->position, enemy->xpValue);
+                    game->player.score += enemy->scoreValue;
+                    game->player.kills++;
+                    enemy->active = false;
+                }
+            }
         }
     }
 
-    if (best[0] < 0) return; /* 사거리 내 적 없음 */
-
-    /* 두 적의 거리가 같으면 랜덤으로 순서 교체 */
-    if (best[1] >= 0 && fabsf(bestDist[0] - bestDist[1]) < 0.01f && rand() % 2) {
-        int t = best[0]; best[0] = best[1]; best[1] = t;
-    }
-
-    for (i = 0; i < 2; i++) {
-        int t = (best[i] >= 0) ? best[i] : best[0]; /* 1명뿐이면 같은 대상에 2발 */
-        Vec2 dir;
-        dir.x = game->enemies[t].position.x - game->player.position.x;
-        dir.y = game->enemies[t].position.y - game->player.position.y;
-        SpawnProjectile(game, weapon, dir, 13.0f, 1.8f, 1);
-    }
     GameRequestSound(game, SOUND_ATTACK);
 }
 
@@ -184,10 +233,18 @@ static void FireStar(Game *game, Weapon *weapon)
 void WeaponsUpdate(Game *game, float dt)
 {
     Weapon *weapon = &game->weapons[game->activeWeapon];
-    /* 공격속도 배율 적용: 쿨타임을 배율로 나눔 */
-    const float effectiveCooldown = (game->player.attackSpeedMult > 0.0f)
-        ? weapon->cooldown / game->player.attackSpeedMult
-        : weapon->cooldown;
+    float effectiveCooldown;
+
+    /* 원형 Lv.7: 기본 쿨타임 대신 0.4s 고속 발사 */
+    if (game->activeWeapon == WEAPON_MAGIC_BOLT && weapon->level >= 7) {
+        effectiveCooldown = (game->player.attackSpeedMult > 0.0f)
+            ? 0.4f / game->player.attackSpeedMult
+            : 0.4f;
+    } else {
+        effectiveCooldown = (game->player.attackSpeedMult > 0.0f)
+            ? weapon->cooldown / game->player.attackSpeedMult
+            : weapon->cooldown;
+    }
 
     weapon->timer -= dt;
     if (weapon->timer <= 0.0f) {

@@ -136,6 +136,32 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
         }
     }
 
+    /* 보물상자 렌더링 */
+    if (game->chest.active) {
+        PutCell(game, grid,
+            GameRound(game->chest.position.x),
+            GameRound(game->chest.position.y),
+            '$', CELL_PROJECTILE);
+    }
+
+    /* 레이저 렌더링: 해당 행/열 전체를 'r'로 표시 */
+    if (game->laser.active) {
+        if (game->laser.horizontal) {
+            for (int x = 1; x < game->mapWidth - 1; x++) {
+                if (!GameMapIsBlocked(game, x, game->laser.row)) {
+                    PutCell(game, grid, x, game->laser.row, 'r', CELL_PROJECTILE);
+                }
+            }
+        }
+        if (game->laser.vertical) {
+            for (int y = 1; y < game->mapHeight - 1; y++) {
+                if (!GameMapIsBlocked(game, game->laser.col, y)) {
+                    PutCell(game, grid, game->laser.col, y, 'r', CELL_PROJECTILE);
+                }
+            }
+        }
+    }
+
     for (int i = 0; i < MAX_PROJECTILES; i++) {
         const Projectile *projectile = &game->projectiles[i];
         if (projectile->active) {
@@ -312,7 +338,7 @@ void UiDrawGame(const Game *game)
     DrawBar("XP", game->player.xp, game->player.xpToNextLevel, 30, "\033[1;32m");
     printf("\033[K\n");
 
-    /* 줄4: 무기 정보 + 특징 설명 (#5) */
+    /* 줄4: 무기 정보 + 특징 설명 */
     {
         static const char *weaponNames[WEAPON_COUNT] = {
             "원형(o)", "삼각형(^)", "사각형(+)", "별(*)"
@@ -321,14 +347,21 @@ void UiDrawGame(const Game *game)
             "가장 가까운 적 조준 1발",
             "가장 가까운 적 방향 3발 부채꼴",
             "상하좌우 4방향 동시 발사",
-            "가장 가까운 적 2명 강타 2발"
+            "랜덤 방향 레이저 (그 줄 전체 피해)"
+        };
+        static const char *weaponDescs7[WEAPON_COUNT] = {
+            "30도 회전 발사 (빠른 속도)",
+            "5발 부채꼴 확장",
+            "8방향 전방위 발사",
+            "4방향 레이저 동시 발사"
         };
         const Weapon *aw = &game->weapons[game->activeWeapon];
+        const char *desc = (aw->level >= 7) ? weaponDescs7[game->activeWeapon]
+                                             : weaponDescs[game->activeWeapon];
 
-        /* #5: Dmg/CD 제거, 공격력/공격속도/이동속도 항상 표시 */
         printf("\033[1;33m무기\033[0m: %s | %s | Lv%d",
             weaponNames[game->activeWeapon],
-            weaponDescs[game->activeWeapon],
+            desc,
             aw->level);
         printf("  공격력 x%d", aw->damage);
         printf("  \033[1;33m공격속도 x%.2f\033[0m", game->player.attackSpeedMult);
@@ -350,6 +383,7 @@ void UiDrawGame(const Game *game)
                "\033[38;5;208mG\033[0m 좀비  \033[1;35mV\033[0m 뱀파이어  "
                "\033[1;33mo\033[0m 원형  \033[1;33m^\033[0m 삼각형  "
                "\033[1;33m+\033[0m 사각형  \033[1;33m*\033[0m 별  "
+               "\033[1;33mr\033[0m 레이저  \033[1;33m$\033[0m 보물상자  "
                "\033[1;34m@\033[0m 방패무적  \033[1;32m+\033[0m XP\033[K\n\n");
     }
 
@@ -357,10 +391,14 @@ void UiDrawGame(const Game *game)
         DrawGridLine(grid, y, game->mapWidth);
     }
 
-    /* 모드별 하단 표시 (#5: 레벨업 세로 배치) */
-    if (game->mode == GAME_MODE_LEVEL_UP) {
+    /* 모드별 하단 표시 */
+    if (game->mode == GAME_MODE_LEVEL_UP || game->mode == GAME_MODE_CHEST) {
         int i;
-        printf("\n\033[1;33m  ========== LEVEL UP! ==========\033[0m\n");
+        if (game->mode == GAME_MODE_CHEST) {
+            printf("\n\033[1;33m  ======= 보물상자 발견! ========\033[0m\n");
+        } else {
+            printf("\n\033[1;33m  ========== LEVEL UP! ==========\033[0m\n");
+        }
         for (i = 0; i < UPGRADE_CHOICES; i++) {
             const bool sel = (game->selectedUpgrade == i);
             printf("  %s\033[1;37m[%d]\033[0m ",

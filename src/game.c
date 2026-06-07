@@ -12,20 +12,51 @@ static const char *WEAPON_SWITCH_NAMES[WEAPON_COUNT] = {
     "무기교체:원형(○)", "무기교체:삼각형(△)", "무기교체:사각형(□)", "무기교체:별(★)"
 };
 static const char *WEAPON_SWITCH_DESCS[WEAPON_COUNT] = {
-    "Dmg20 1발조준 쿨1.0s", "Dmg8 3발부채꼴 쿨0.4s",
-    "Dmg15 4방향 쿨1.0s",   "Dmg40 1발강타 쿨2.0s"
+    "Dmg20 1발조준 쿨0.6s", "Dmg8 3발부채꼴 쿨0.36s",
+    "Dmg15 4방향 쿨0.65s",  "Dmg40 레이저 쿨2.5s"
 };
+
+/* 무기 선택지 가중치: 원형=0(시작무기), 삼각형=35, 사각형=50, 별=15 */
+static const int WEAPON_SWITCH_WEIGHTS[WEAPON_COUNT] = {0, 35, 50, 15};
+
+static WeaponType PickSwitchTarget(const Game *game)
+{
+    int totalWeight = 0;
+    int r;
+    int i;
+
+    for (i = 0; i < WEAPON_COUNT; i++) {
+        if ((WeaponType)i != game->activeWeapon) {
+            totalWeight += WEAPON_SWITCH_WEIGHTS[i];
+        }
+    }
+
+    if (totalWeight <= 0) {
+        return WEAPON_HOLY_AURA; /* fallback */
+    }
+
+    r = rand() % totalWeight;
+    for (i = 0; i < WEAPON_COUNT; i++) {
+        if ((WeaponType)i == game->activeWeapon) {
+            continue;
+        }
+        r -= WEAPON_SWITCH_WEIGHTS[i];
+        if (r < 0) {
+            return (WeaponType)i;
+        }
+    }
+
+    return WEAPON_HOLY_AURA; /* fallback */
+}
 
 static void GenerateUpgrades(Game *game)
 {
     Weapon *aw = &game->weapons[game->activeWeapon];
-    WeaponType switchTarget = (WeaponType)((game->activeWeapon + 1 +
-        rand() % (WEAPON_COUNT - 1)) % WEAPON_COUNT);
+    WeaponType switchTarget = PickSwitchTarget(game);
 
-    /* #5: 동적 설명 버퍼 — 현재값→다음값 표시 */
     static char moveDesc[64];
     static char atkDesc[64];
-    static char levelupDesc[64];
+    static char levelupDesc[96];
     static const char *hpDescs[4] = {
         "Lv0->1: 30초마다 HP+2 자동회복",
         "Lv1->2: 20초마다 HP+3 자동회복",
@@ -38,6 +69,13 @@ static void GenerateUpgrades(Game *game)
         "Lv2->3: 60초마다 15초 무적 발동",
         "이미 최대 레벨(Lv.3)"
     };
+    /* 무기별 Lv.7 특수 효과 설명 */
+    static const char *lv7Descs[WEAPON_COUNT] = {
+        "Lv.7 특수: 30도 회전 발사 + 빠른 공격속도",
+        "Lv.7 특수: 5발 부채꼴로 확장",
+        "Lv.7 특수: 8방향 전방위 발사",
+        "Lv.7 특수: 4방향 레이저 동시 발사"
+    };
     int hpIdx;
     int shieldIdx;
     UpgradeOption pool[6];
@@ -45,19 +83,26 @@ static void GenerateUpgrades(Game *game)
 
     {
         float nMove = game->player.moveSpeedMult * 1.2f;
-        float nAtk  = game->player.attackSpeedMult * 1.1f; /* #1: +10% */
+        float nAtk  = game->player.attackSpeedMult * 1.1f;
         if (nMove > 1.44f) nMove = 1.44f;
         snprintf(moveDesc, sizeof(moveDesc), "이동속도 x%.2f -> x%.2f (+20%%)",
                  game->player.moveSpeedMult, nMove);
         snprintf(atkDesc,  sizeof(atkDesc),  "공격속도 x%.2f -> x%.2f (+10%%)",
                  game->player.attackSpeedMult, nAtk);
     }
-    if (aw->level < 3) {
-        snprintf(levelupDesc, sizeof(levelupDesc), "Dmg %d->%d, 사거리 %d->%d (+30%%/+20%%)",
-            aw->damage, (int)((float)aw->damage * 1.30f + 0.5f),
-            aw->range,  (int)((float)aw->range  * 1.20f + 0.5f));
+
+    if (aw->level < 6) {
+        /* Lv.1~5: 다음 레벨은 일반 강화 */
+        snprintf(levelupDesc, sizeof(levelupDesc), "Dmg %d->%d, 사거리 %d->%d (+15%%/+10%%)",
+            aw->damage, (int)((float)aw->damage * 1.15f + 0.5f),
+            aw->range,  (int)((float)aw->range  * 1.10f + 0.5f));
+    } else if (aw->level == 6) {
+        /* Lv.6: 다음 레벨이 Lv.7 특수 */
+        strncpy(levelupDesc, lv7Descs[game->activeWeapon], sizeof(levelupDesc) - 1);
+        levelupDesc[sizeof(levelupDesc) - 1] = '\0';
     } else {
-        strncpy(levelupDesc, "이미 최대 레벨(Lv.3)", sizeof(levelupDesc) - 1);
+        /* Lv.7: 이미 최대 */
+        strncpy(levelupDesc, "이미 최대 레벨(Lv.7)", sizeof(levelupDesc) - 1);
         levelupDesc[sizeof(levelupDesc) - 1] = '\0';
     }
 
@@ -101,17 +146,17 @@ static void ResetWeaponToBase(Game *game, WeaponType type)
             game->weapons[type] = (Weapon){type, 1, 15, 4, 18, 0.65f, 0.0f, '+'};
             break;
         case WEAPON_STAR_BURST:
-            game->weapons[type] = (Weapon){type, 1, 40, 1, 14, 1.40f, 0.0f, '*'};
+            game->weapons[type] = (Weapon){type, 1, 40, 1, 14, 2.50f, 0.0f, '*'};
             break;
         default:
             return;
     }
 
-    /* 보존된 레벨만큼 스탯 재적용 */
-    for (i = 1; i < savedLevel && game->weapons[type].level < 3; i++) {
+    /* 보존된 레벨만큼 스탯 재적용 (최대 Lv.7) */
+    for (i = 1; i < savedLevel && game->weapons[type].level < 7; i++) {
         game->weapons[type].level++;
-        game->weapons[type].damage = (int)((float)game->weapons[type].damage * 1.30f + 0.5f);
-        game->weapons[type].range  = (int)((float)game->weapons[type].range  * 1.20f + 0.5f);
+        game->weapons[type].damage = (int)((float)game->weapons[type].damage * 1.15f + 0.5f);
+        game->weapons[type].range  = (int)((float)game->weapons[type].range  * 1.10f + 0.5f);
     }
 }
 
@@ -281,7 +326,13 @@ void GameInit(Game *game, GameDifficulty difficulty)
     game->weapons[WEAPON_MAGIC_BOLT]    = (Weapon){WEAPON_MAGIC_BOLT,    1, 20, 1, 18, 0.60f, 0.0f, 'o'};
     game->weapons[WEAPON_HOLY_AURA]     = (Weapon){WEAPON_HOLY_AURA,     1,  8, 3, 18, 0.36f, 0.0f, '^'}; /* #4: 30% 느리게 0.25→0.36 */
     game->weapons[WEAPON_PIERCING_LANCE]= (Weapon){WEAPON_PIERCING_LANCE,1, 15, 4, 18, 0.65f, 0.0f, '+'};
-    game->weapons[WEAPON_STAR_BURST]    = (Weapon){WEAPON_STAR_BURST,    1, 40, 1, 14, 1.40f, 0.0f, '*'};
+    game->weapons[WEAPON_STAR_BURST]    = (Weapon){WEAPON_STAR_BURST,    1, 40, 1, 14, 2.50f, 0.0f, '*'};
+
+    /* 레이저 / 보물상자 초기화 */
+    game->laser.active = false;
+    game->laser.timer  = 0.0f;
+    game->chest.active = false;
+    game->chestTimer   = 40.0f;  /* 첫 상자 40초 후 스폰 */
 
     game->elapsed = 0.0f;
     game->spawnTimer = 0.0f;
@@ -290,16 +341,16 @@ void GameInit(Game *game, GameDifficulty difficulty)
         game->spawnStartInterval = 0.95f;
         game->spawnRampPerSecond = 0.0018f;
         game->spawnMinInterval = 0.24f;
-        game->midEnemyStart = 120.0f;
-        game->highEnemyStart = 240.0f;
+        game->midEnemyStart = 90.0f;   /* 하드: 좀비 1.5분부터 */
+        game->highEnemyStart = 180.0f; /* 하드: 뱀파이어 3분부터 */
         game->midEnemyChance = 55;
         game->highEnemyChance = 22;
     } else {
         game->spawnStartInterval = 1.35f;
         game->spawnRampPerSecond = 0.0011f;
         game->spawnMinInterval = 0.38f;
-        game->midEnemyStart = 120.0f;
-        game->highEnemyStart = 240.0f;
+        game->midEnemyStart = 120.0f;  /* 이지: 좀비 2분부터 */
+        game->highEnemyStart = 240.0f; /* 이지: 뱀파이어 4분부터 */
         game->midEnemyChance = 40;
         game->highEnemyChance = 15;
     }
@@ -331,13 +382,13 @@ void GameApplyUpgrade(Game *game, int index)
         case 1: /* 공격속도 증가 — #1: +10% */
             game->player.attackSpeedMult *= 1.1f;
             break;
-        case 2: /* 무기 레벨업 (최대 Lv.3) */
+        case 2: /* 무기 레벨업 (최대 Lv.7) */
             {
                 Weapon *weapon = &game->weapons[game->activeWeapon];
-                if (weapon->level < 3) {
+                if (weapon->level < 7) {
                     weapon->level++;
-                    weapon->damage = (int)((float)weapon->damage * 1.30f + 0.5f);
-                    weapon->range  = (int)((float)weapon->range  * 1.20f + 0.5f);
+                    weapon->damage = (int)((float)weapon->damage * 1.15f + 0.5f);
+                    weapon->range  = (int)((float)weapon->range  * 1.10f + 0.5f);
                 }
             }
             break;
@@ -384,7 +435,7 @@ void GameUpdate(Game *game, const InputState *input, float dt)
         return;
     }
 
-    if (game->mode == GAME_MODE_LEVEL_UP) {
+    if (game->mode == GAME_MODE_LEVEL_UP || game->mode == GAME_MODE_CHEST) {
         if (input->left || input->up) {
             game->selectedUpgrade = (game->selectedUpgrade + UPGRADE_CHOICES - 1) % UPGRADE_CHOICES;
         }
@@ -413,6 +464,37 @@ void GameUpdate(Game *game, const InputState *input, float dt)
     }
 
     PlayerUpdate(game, input, dt);
+
+    /* 보물상자 타이머: 40초마다 새 상자 스폰 (이전 상자 자동 소멸) */
+    game->chestTimer -= dt;
+    if (game->chestTimer <= 0.0f) {
+        game->chestTimer = 40.0f;
+        game->chest.active = true;
+        do {
+            game->chest.position.x = (float)(1 + rand() % (game->mapWidth  - 2));
+            game->chest.position.y = (float)(1 + rand() % (game->mapHeight - 2));
+        } while (GameMapIsBlocked(game,
+                    GameRound(game->chest.position.x),
+                    GameRound(game->chest.position.y)));
+    }
+
+    /* 보물상자 획득 판정 */
+    if (game->chest.active &&
+        GameDistanceSquared(game->player.position, game->chest.position) <= 0.5f) {
+        game->chest.active = false;
+        GenerateUpgrades(game);
+        game->mode = GAME_MODE_CHEST;
+        GameRequestSound(game, SOUND_LEVEL_UP);
+        return;
+    }
+
+    /* 레이저 시각 효과 타이머 */
+    if (game->laser.active) {
+        game->laser.timer -= dt;
+        if (game->laser.timer <= 0.0f) {
+            game->laser.active = false;
+        }
+    }
 
     game->spawnTimer += dt;
     while (game->spawnTimer >= game->spawnInterval) {
