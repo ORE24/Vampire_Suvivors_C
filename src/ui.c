@@ -185,6 +185,32 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
         }
     }
 
+    /* 보물상자 렌더링 */
+    if (game->chest.active) {
+        PutCell(game, grid,
+            GameRound(game->chest.position.x),
+            GameRound(game->chest.position.y),
+            '$', CELL_PROJECTILE);
+    }
+
+    /* 레이저 렌더링: 해당 행/열 전체를 'r'로 표시 */
+    if (game->laser.active) {
+        if (game->laser.horizontal) {
+            for (int x = 1; x < game->mapWidth - 1; x++) {
+                if (!GameMapIsBlocked(game, x, game->laser.row)) {
+                    PutCell(game, grid, x, game->laser.row, 'r', CELL_PROJECTILE);
+                }
+            }
+        }
+        if (game->laser.vertical) {
+            for (int y = 1; y < game->mapHeight - 1; y++) {
+                if (!GameMapIsBlocked(game, game->laser.col, y)) {
+                    PutCell(game, grid, game->laser.col, y, 'r', CELL_PROJECTILE);
+                }
+            }
+        }
+    }
+
     for (int i = 0; i < MAX_PROJECTILES; i++) {
         const Projectile *projectile = &game->projectiles[i];
         if (projectile->active) {
@@ -352,26 +378,28 @@ void UiDrawGame(const Game *game)
     }
     BeginFrame();
 
+    /* 줄1: 타이틀 + 난이도 + 경과 시간 + 남은 시간 + 킬 + 점수 */
     printf("\033[1;36mTerminal Survivors\033[0m  ");
     printf("[%s]  ", GameDifficultyName(game->difficulty));
-    printf("Time %02d:%02d / 05:00  ", seconds / 60, seconds % 60);
-    printf("Remain %02d:%02d\033[K\n", remaining / 60, remaining % 60);
+    printf("Time %02d:%02d  ", seconds / 60, seconds % 60);
+    printf("Remain %02d:%02d  ", remaining / 60, remaining % 60);
     printf("Kills %d  Score %d\033[K\n", game->player.kills, game->player.score);
 
+    /* 줄2: HP 바 + XP 바 + LV */
     DrawBar("HP", game->player.health, game->player.maxHealth, 18, "\033[1;31m");
     printf("   ");
     DrawBar("XP", game->player.xp, game->player.xpToNextLevel, 18, "\033[1;32m");
     printf("   LV %d\033[K\n", game->player.level);
 
+    /* 줄3: 무기 정보 */
     {
         static const char *weaponNames[WEAPON_COUNT] = {
-            "피의 고리", "혼돈의 살점", "십자 저주", "부패한 혜성"
+            "원형(○)", "삼각형(△)", "사각형(□)", "별(★)"
         };
         const Weapon *aw = &game->weapons[game->activeWeapon];
 
         printf("\033[1;33m무기\033[0m: %s  Lv%d  Dmg%d  CD%.2fs",
-            weaponNames[game->activeWeapon], aw->level, aw->damage,
-            aw->cooldown);
+            weaponNames[game->activeWeapon], aw->level, aw->damage, aw->cooldown);
 
         if (game->player.attackSpeedMult > 1.0f) {
             printf("  \033[1;33m공격속도x%.1f\033[0m", game->player.attackSpeedMult);
@@ -388,12 +416,14 @@ void UiDrawGame(const Game *game)
                 game->player.shieldHits, game->player.shieldTimer);
         }
         printf("\033[K\n");
+
+        /* Legend */
         printf("\033[1;36m@\033[0m you  \033[1;31mb\033[0m 박쥐  "
                "\033[38;5;208mG\033[0m 좀비  \033[1;35mV\033[0m 뱀파이어  "
-	       "\033[38;5;196mo\033[0m 피의고리  \033[1;33m^\033[0m 혼돈의살점  "
-	       "\033[1;33m+\033[0m 십자저주  \033[1;33m*\033[0m 부패한혜성  "
-	       "\033[1;34m@\033[0m 방패무적  \033[1;32m+\033[0m XP  "
-	       "\033[1;35mC\033[0m 보물상자\033[K\n\033[K\n");
+               "\033[38;5;196mo\033[0m 원형  \033[1;33m^\033[0m 삼각형  "
+               "\033[1;33m+\033[0m 사각형  \033[1;33m*\033[0m 별  "
+               "\033[1;33mr\033[0m 레이저  \033[1;33m$\033[0m 보물상자  "
+               "\033[1;34m@\033[0m 방패  \033[1;32m+\033[0m XP\033[K\n\n");
     }
 
     for (int y = 0; y < game->mapHeight; y++) {
@@ -409,23 +439,31 @@ void UiDrawGame(const Game *game)
         printf("\033[K\n");
     }
 
-    if (game->mode == GAME_MODE_LEVEL_UP) {
-        printf("\033[1;33mLEVEL UP\033[0m  "
-               "%s[1] %-16s\033[0m  %s[2] %-16s\033[0m  %s[3] %s\033[0m\033[K\n",
-            game->selectedUpgrade == 0 ? "\033[1;36m>" : " ",
-            game->upgrades[0].name,
-            game->selectedUpgrade == 1 ? "\033[1;36m>" : " ",
-            game->upgrades[1].name,
-            game->selectedUpgrade == 2 ? "\033[1;36m>" : " ",
-            game->upgrades[2].name);
-        printf("\033[0;36m→ %s\033[0m\033[K\n",
-            game->upgrades[game->selectedUpgrade].description);
+    /* 모드별 하단 표시 */
+    if (game->mode == GAME_MODE_LEVEL_UP || game->mode == GAME_MODE_CHEST) {
+        int i;
+        if (game->mode == GAME_MODE_CHEST) {
+            printf("\033[1;33m  ======= 보물상자 발견! ========\033[0m\n");
+        } else {
+            printf("\033[1;33m  ========== LEVEL UP! ==========\033[0m\n");
+        }
+        for (i = 0; i < UPGRADE_CHOICES; i++) {
+            const bool sel = (game->selectedUpgrade == i);
+            printf("  %s\033[1;37m[%d]\033[0m ",
+                sel ? "\033[1;36m>\033[0m" : " ",
+                i + 1);
+            if (sel) { printf("\033[1;36m"); }
+            printf("%-22s\033[0m\n", game->upgrades[i].name);
+            printf("       \033[2;37m%s\033[0m\033[K\n", game->upgrades[i].description);
+        }
+        printf("  \033[1;33m================================\033[0m\n");
+        printf("  1~3 키 또는 <-> 방향키로 선택, Enter 확인\033[K\n");
     } else if (game->mode == GAME_MODE_PAUSED) {
         printf("\033[1;33mPAUSED\033[0m  Esc 재개  Q 게임종료\033[K\n");
     } else if (game->mode == GAME_MODE_GAME_OVER) {
         printf("\033[1;31mGAME OVER\033[0m  HP가 0이 됐습니다.  R 재시작  B/Esc 타이틀\033[K\n");
     } else if (game->mode == GAME_MODE_VICTORY) {
-        printf("\033[1;32mGAME CLEAR\033[0m  5분 생존 성공!  Enter/R 랭킹 등록  B/Esc 타이틀\033[K\n");
+        printf("\033[1;32mGAME CLEAR\033[0m  7분 생존 성공!  Enter/R 랭킹 등록  B/Esc 타이틀\033[K\n");
     } else {
         printf("이동으로 회피하세요. 공격은 자동입니다.  Esc 일시정지  Q 게임종료  M 사운드\033[K\n");
     }

@@ -11,24 +11,25 @@ static void ApplyWeaponLevelStats(Game *game, WeaponType type)
     Weapon *w = &game->weapons[type];
     switch (type) {
         case WEAPON_MAGIC_BOLT:
-            w->damage         = 20 + 2 * (w->level - 1);
-            w->cooldown       = 1.0f / (1.0f + 0.5f * (float)(w->level - 1));
+            w->damage          = 20 + 2 * (w->level - 1);
+            w->cooldown        = 1.0f / (1.0f + 0.5f * (float)(w->level - 1));
             w->projectileCount = 1;
             break;
         case WEAPON_HOLY_AURA:
-            w->damage         = 4 + 2 * (w->level - 1);
-            w->cooldown       = 1.0f / (2.5f + 0.2f * (float)(w->level - 1));
+            w->damage          = 4 + 2 * (w->level - 1);
+            w->cooldown        = 1.0f / (2.5f + 0.2f * (float)(w->level - 1));
             w->projectileCount = (w->level >= 7) ? 5 : 3;
             break;
         case WEAPON_PIERCING_LANCE:
-            w->damage         = 10 + 2 * (w->level - 1);
-            w->cooldown       = 1.0f / (1.0f + 0.3f * (float)(w->level - 1));
+            w->damage          = 10 + 2 * (w->level - 1);
+            w->cooldown        = 1.0f / (1.0f + 0.3f * (float)(w->level - 1));
             w->projectileCount = (w->level >= 7) ? 8 : 4;
             break;
         case WEAPON_STAR_BURST:
-            w->damage         = 40 + 5 * (w->level - 1);
+            w->damage = 40 + 5 * (w->level - 1);
             if (w->level >= 7) {
-                w->cooldown        = 0.2f;
+                /* Lv.7 특수: 4방향 레이저 — 쿨타임은 WeaponsUpdate에서 처리 */
+                w->cooldown        = 2.50f;
                 w->projectileCount = 4;
             } else {
                 w->cooldown        = 1.0f / (0.5f + 0.5f * (float)(w->level - 1));
@@ -51,40 +52,40 @@ static void GenerateUpgrades(Game *game)
     const Weapon *wSt = &game->weapons[WEAPON_STAR_BURST];
 
     if (wC->level == 0)
-        snprintf(descC,  sizeof(descC),  "궤도 10개 회전 타격 [처음 획득]");
+        snprintf(descC,  sizeof(descC),  "DMG 20, 조준 1발 [처음 획득]");
     else if (wC->level < 7)
         snprintf(descC,  sizeof(descC),  "Lv.%d->%d: DMG+2, 공격속도+0.5", wC->level, wC->level + 1);
     else
-        snprintf(descC,  sizeof(descC),  "만랩 Lv.7");
+        snprintf(descC,  sizeof(descC),  "만랩 Lv.7: 30도 회전 고속 발사");
 
     if (wT->level == 0)
-        snprintf(descT,  sizeof(descT),  "DMG 4, 공격속도 2.5, 3발 부채꼴 [처음 획득]");
+        snprintf(descT,  sizeof(descT),  "DMG 4, 3발 부채꼴 [처음 획득]");
     else if (wT->level < 7)
         snprintf(descT,  sizeof(descT),  "Lv.%d->%d: DMG+2, 공격속도+0.2 (Lv7: 5발)", wT->level, wT->level + 1);
     else
         snprintf(descT,  sizeof(descT),  "만랩 Lv.7: 5발 부채꼴");
 
     if (wS->level == 0)
-        snprintf(descS,  sizeof(descS),  "DMG 10, 공격속도 1, 4방향 [처음 획득]");
+        snprintf(descS,  sizeof(descS),  "DMG 10, 4방향 [처음 획득]");
     else if (wS->level < 7)
         snprintf(descS,  sizeof(descS),  "Lv.%d->%d: DMG+2, 공격속도+0.3 (Lv7: 8방향)", wS->level, wS->level + 1);
     else
-        snprintf(descS,  sizeof(descS),  "만랩 Lv.7: 4방향 각 2발");
+        snprintf(descS,  sizeof(descS),  "만랩 Lv.7: 8방향 전방위");
 
     if (wSt->level == 0)
-        snprintf(descSt, sizeof(descSt), "DMG 40, 공격속도 0.5, 1발 강타 [처음 획득]");
+        snprintf(descSt, sizeof(descSt), "DMG 40, 레이저 [처음 획득]");
     else if (wSt->level < 7)
-        snprintf(descSt, sizeof(descSt), "Lv.%d->%d: DMG+5, 공격속도+0.5 (Lv7: 3발x3연사)", wSt->level, wSt->level + 1);
+        snprintf(descSt, sizeof(descSt), "Lv.%d->%d: DMG+5 (Lv7: 4방향 레이저)", wSt->level, wSt->level + 1);
     else
-        snprintf(descSt, sizeof(descSt), "만랩 Lv.7: 3발 부채꼴 x3연사");
+        snprintf(descSt, sizeof(descSt), "만랩 Lv.7: 4방향 레이저 동시 발사");
 
     const UpgradeOption pool[8] = {
         {"이동속도 증가",  "이동속도 +20%",   WEAPON_COUNT,           0},
         {"공격속도 증가",  "공격속도 +10%",   WEAPON_COUNT,           1},
-        {"피의 고리",      descC,             WEAPON_MAGIC_BOLT,      2},
-        {"혼돈의 살점",    descT,             WEAPON_HOLY_AURA,       3},
-        {"십자 저주",      descS,             WEAPON_PIERCING_LANCE,  4},
-        {"부패한 혜성",    descSt,            WEAPON_STAR_BURST,      5},
+        {"원형(○)",        descC,             WEAPON_MAGIC_BOLT,      2},
+        {"삼각형(△)",      descT,             WEAPON_HOLY_AURA,       3},
+        {"사각형(□)",      descS,             WEAPON_PIERCING_LANCE,  4},
+        {"별(★)",          descSt,            WEAPON_STAR_BURST,      5},
         {"회복의 붕대",
             game->player.hpRecoveryLevel > 0
                 ? "이미 활성 중"
@@ -93,7 +94,7 @@ static void GenerateUpgrades(Game *game)
         {"무적의 방패",
             game->player.shieldTimer > 0.0f
                 ? "방패 활성 중"
-                : "5회 방어 or 20초 후 화면 몬스터 전멸  \033[1;31m감히 나를 부순 자들이여, 함께 소멸하라",
+                : "5회 방어 or 20초 후 화면 몬스터 전멸",
             WEAPON_COUNT, 7}
     };
 
@@ -308,7 +309,7 @@ void GameInit(Game *game, GameDifficulty difficulty)
     game->player.attackSpeedMult = 1.0f;
     game->player.moveSpeedMult = 1.0f;
 
-    /* 시작 무기: 피의 고리 Lv.1, 나머지는 미획득(Lv.0) */
+    /* 시작 무기: 원형(○) Lv.1, 나머지는 미획득(Lv.0) */
     game->activeWeapon = WEAPON_MAGIC_BOLT;
     game->weapons[WEAPON_MAGIC_BOLT] =
         (Weapon){WEAPON_MAGIC_BOLT, 1, 20, 1, 18, 1.00f, 0.0f, 'o', 0, 0.0f, {0.0f, 0.0f}};
@@ -317,12 +318,19 @@ void GameInit(Game *game, GameDifficulty difficulty)
     game->weapons[WEAPON_PIERCING_LANCE] =
         (Weapon){WEAPON_PIERCING_LANCE, 0, 10, 4, 18, 1.00f, 0.0f, '+', 0, 0.0f, {0.0f, 0.0f}};
     game->weapons[WEAPON_STAR_BURST] =
-        (Weapon){WEAPON_STAR_BURST, 0, 40, 1, 14, 2.00f, 0.0f, '*', 0, 0.0f, {0.0f, 0.0f}};
+        (Weapon){WEAPON_STAR_BURST, 0, 40, 1, 14, 2.50f, 0.0f, '*', 0, 0.0f, {0.0f, 0.0f}};
+
+    /* 레이저 / 보물상자 초기화 */
+    game->laser.active = false;
+    game->laser.timer  = 0.0f;
+    game->chest.active = false;
+    game->chestTimer   = 40.0f;  /* 첫 상자 40초 후 스폰 */
 
     game->elapsed = 0.0f;
     game->speedWarningTimer = 0.0f;
     game->lastSpeedStep = 0;
     game->spawnTimer = 0.0f;
+    /* #2: 웨이브 3(2분)부터 좀비, 웨이브 5(4분)부터 뱀파이어 */
     if (difficulty == DIFFICULTY_HARD) {
         game->spawnStartInterval = 0.95f;
         game->spawnRampPerSecond = 0.0030f;
@@ -368,10 +376,10 @@ void GameApplyUpgrade(Game *game, int index)
         case 1: /* 공격속도 +10% */
             game->player.attackSpeedMult *= 1.1f;
             break;
-        case 2: /* 피의 고리 — 선택 시 교체 + 레벨업 */
-        case 3: /* 혼돈의 살점 */
-        case 4: /* 십자 저주 */
-        case 5: /* 부패한 혜성 */
+        case 2: /* 원형(○) — 선택 시 교체 + 레벨업 */
+        case 3: /* 삼각형(△) */
+        case 4: /* 사각형(□) */
+        case 5: /* 별(★) */
             {
                 WeaponType wt = upgrade->weapon;
                 Weapon *w = &game->weapons[wt];
@@ -426,7 +434,7 @@ void GameUpdate(Game *game, const InputState *input, float dt)
         return;
     }
 
-    if (game->mode == GAME_MODE_LEVEL_UP) {
+    if (game->mode == GAME_MODE_LEVEL_UP || game->mode == GAME_MODE_CHEST) {
         const int previousUpgrade = game->selectedUpgrade;
 
         if (input->left || input->up) {
@@ -488,6 +496,37 @@ void GameUpdate(Game *game, const InputState *input, float dt)
 
     PlayerUpdate(game, input, dt);
 
+    /* 보물상자 타이머: 40초마다 새 상자 스폰 (이전 상자 자동 소멸) */
+    game->chestTimer -= dt;
+    if (game->chestTimer <= 0.0f) {
+        game->chestTimer = 40.0f;
+        game->chest.active = true;
+        do {
+            game->chest.position.x = (float)(1 + rand() % (game->mapWidth  - 2));
+            game->chest.position.y = (float)(1 + rand() % (game->mapHeight - 2));
+        } while (GameMapIsBlocked(game,
+                    GameRound(game->chest.position.x),
+                    GameRound(game->chest.position.y)));
+    }
+
+    /* 보물상자 획득 판정 */
+    if (game->chest.active &&
+        GameDistanceSquared(game->player.position, game->chest.position) <= 0.5f) {
+        game->chest.active = false;
+        GenerateUpgrades(game);
+        game->mode = GAME_MODE_CHEST;
+        GameRequestSound(game, SOUND_LEVEL_UP);
+        return;
+    }
+
+    /* 레이저 시각 효과 타이머 */
+    if (game->laser.active) {
+        game->laser.timer -= dt;
+        if (game->laser.timer <= 0.0f) {
+            game->laser.active = false;
+        }
+    }
+
     game->spawnTimer += dt;
     while (game->spawnTimer >= game->spawnInterval) {
         EnemiesSpawnWave(game);
@@ -522,6 +561,9 @@ void GameUpdate(Game *game, const InputState *input, float dt)
         game->player.level++;
         game->player.score += 50;
         game->player.xpToNextLevel = (int)((float)game->player.xpToNextLevel * 1.35f) + 4;
+        /* 레벨업 시 자동 속도 2% 향상 */
+        game->player.attackSpeedMult *= 1.02f;
+        game->player.moveSpeedMult   *= 1.02f;
         GameStartRewardChoice(game);
     }
 

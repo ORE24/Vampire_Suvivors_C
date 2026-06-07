@@ -122,39 +122,47 @@ static bool ProjectilePathHitsWall(const Game *game, Vec2 from, Vec2 to)
     return false;
 }
 
-/* 피의 고리: Lv1~2 조준 1발 / Lv3~6 궤도 1링 / Lv7 궤도 2링 */
+/* ○ 원형: Lv1~2 조준 1발 / Lv3~6 궤도 1링 / Lv7 30도씩 회전 고속 발사 */
 static void FireCircle(Game *game, Weapon *weapon)
 {
-    if (weapon->level >= 3) {
-        static const float RADII[2] = {5.0f, 8.5f};
-        const int ringCount  = (weapon->level >= 7) ? 2 : 1;
-        const int targetCount = (int)(5.0f * game->player.attackSpeedMult + 0.5f);
-        bool needRespawn = false;
-
-        /* 각 링별로 궤도탄 수 확인 */
-        for (int r = 0; r < ringCount; r++) {
-            int count = 0;
-            for (int i = 0; i < MAX_PROJECTILES; i++) {
-                Projectile *p = &game->projectiles[i];
-                if (p->active && p->orbit && fabsf(p->orbitRadius - RADII[r]) < 0.1f)
-                    count++;
-            }
-            if (count < targetCount) { needRespawn = true; break; }
+    if (weapon->level >= 7) {
+        static float circleAngle = 0.0f;
+        int i;
+        /* Lv.7: 궤도탄 소멸 후 30도씩 시계방향 회전 발사 */
+        for (i = 0; i < MAX_PROJECTILES; i++) {
+            if (game->projectiles[i].active && game->projectiles[i].orbit)
+                game->projectiles[i].active = false;
         }
+        {
+            const Vec2 dir = {cosf(circleAngle), sinf(circleAngle)};
+            SpawnProjectile(game, weapon, dir, 15.0f, 2.0f, 1, 0);
+        }
+        circleAngle += PI / 6.0f;
+        if (circleAngle >= 2.0f * PI) circleAngle -= 2.0f * PI;
+        GameRequestSound(game, SOUND_SHOOT);
+        return;
+    }
 
-        if (needRespawn) {
+    if (weapon->level >= 3) {
+        static const float ORBIT_RADIUS = 5.0f;
+        const int targetCount = (int)(5.0f * game->player.attackSpeedMult + 0.5f);
+        int count = 0;
+        int i;
+
+        for (i = 0; i < MAX_PROJECTILES; i++) {
+            Projectile *p = &game->projectiles[i];
+            if (p->active && p->orbit && fabsf(p->orbitRadius - ORBIT_RADIUS) < 0.1f)
+                count++;
+        }
+        if (count < targetCount) {
             /* 기존 궤도탄 전부 제거 후 재배치 */
-            for (int i = 0; i < MAX_PROJECTILES; i++) {
+            for (i = 0; i < MAX_PROJECTILES; i++) {
                 if (game->projectiles[i].active && game->projectiles[i].orbit)
                     game->projectiles[i].active = false;
             }
-            for (int r = 0; r < ringCount; r++) {
-                /* 2링일 때 외링은 절반 위상 오프셋으로 엇갈리게 배치 */
-                float offset = (r == 1) ? PI / (float)targetCount : 0.0f;
-                for (int j = 0; j < targetCount; j++) {
-                    float angle = offset + (float)j * (2.0f * PI / (float)targetCount);
-                    SpawnOrbitProjectile(game, weapon, angle, RADII[r]);
-                }
+            for (i = 0; i < targetCount; i++) {
+                float angle = (float)i * (2.0f * PI / (float)targetCount);
+                SpawnOrbitProjectile(game, weapon, angle, ORBIT_RADIUS);
             }
             GameRequestSound(game, SOUND_SHOOT);
         }
@@ -175,7 +183,7 @@ static void FireCircle(Game *game, Weapon *weapon)
     }
 }
 
-/* 혼돈의 살점: 부채꼴 3발 (Lv7: 5발) */
+/* △ 삼각형: 3발 부채꼴 / Lv.7: 5발 부채꼴 */
 static void FireTriangle(Game *game, Weapon *weapon)
 {
     Vec2 targetPosition;
@@ -202,62 +210,89 @@ static void FireTriangle(Game *game, Weapon *weapon)
     GameRequestSound(game, SOUND_SHOOT);
 }
 
-/* 십자 저주: 4방향 발사 (Lv7: 4방향 각 2발) */
+/* □ 사각형: 상하좌우 4방향 / Lv.7: 8방향 전방위 */
 static void FireSquare(Game *game, Weapon *weapon)
 {
-    static const Vec2 dirs[4] = {
-        { 1.0f,  0.0f},
-        {-1.0f,  0.0f},
-        { 0.0f,  1.0f},
-        { 0.0f, -1.0f}
+    static const Vec2 dirs4[4] = {
+        { 1.0f,    0.0f},
+        {-1.0f,    0.0f},
+        { 0.0f,    1.0f},
+        { 0.0f,   -1.0f}
     };
-    int i;
+    static const Vec2 dirs8[8] = {
+        { 1.0f,    0.0f},
+        {-1.0f,    0.0f},
+        { 0.0f,    1.0f},
+        { 0.0f,   -1.0f},
+        { 0.707f,  0.707f},
+        { 0.707f, -0.707f},
+        {-0.707f,  0.707f},
+        {-0.707f, -0.707f}
+    };
+    int i, count;
+    const Vec2 *dirs;
 
     if (weapon->level >= 7) {
-        /* 만랩: 각 방향마다 약간 벌어진 2발씩 */
-        static const float spread = 0.15f;
-        for (i = 0; i < 4; i++) {
-            float ax = dirs[i].x - dirs[i].y * spread;
-            float ay = dirs[i].y + dirs[i].x * spread;
-            float bx = dirs[i].x + dirs[i].y * spread;
-            float by = dirs[i].y - dirs[i].x * spread;
-            SpawnProjectile(game, weapon, (Vec2){ax, ay}, 13.0f, 1.8f, 1, 0);
-            SpawnProjectile(game, weapon, (Vec2){bx, by}, 13.0f, 1.8f, 1, 0);
-        }
+        count = 8;
+        dirs  = dirs8;
     } else {
-        for (i = 0; i < 4; i++) {
-            SpawnProjectile(game, weapon, dirs[i], 13.0f, 1.8f, 1, 0);
-        }
+        count = 4;
+        dirs  = dirs4;
+    }
+
+    for (i = 0; i < count; i++) {
+        SpawnProjectile(game, weapon, dirs[i], 13.0f, 1.8f, 1, 0);
     }
 
     GameRequestSound(game, SOUND_SHOOT);
 }
 
-/* 부패한 혜성: 강타 1발 (Lv7: 3발씩 3연사 버스트) */
+/* ★ 별: 랜덤 방향 레이저 (그 줄 전체 적 즉시 피해) / Lv.7: 가로+세로 동시 */
 static void FireStar(Game *game, Weapon *weapon)
 {
-    Vec2 targetPosition;
-    Vec2 direction;
-
-    if (!FindNearestTargetPosition(game, weapon->range, &targetPosition)) {
-        return;
-    }
-
-    direction.x = targetPosition.x - game->player.position.x;
-    direction.y = targetPosition.y - game->player.position.y;
+    const int playerX = GameRound(game->player.position.x);
+    const int playerY = GameRound(game->player.position.y);
+    bool doHorizontal;
+    bool doVertical;
+    int i;
 
     if (weapon->level >= 7) {
-        /* 1차 발사 (3발 부채꼴), 이후 2연 버스트 예약 */
-        float baseAngle = atan2f(direction.y, direction.x);
-        for (int s = -1; s <= 1; s++) {
-            float a = baseAngle + (float)s * 0.18f;
-            SpawnProjectile(game, weapon, (Vec2){cosf(a), sinf(a)}, 14.0f, 2.0f, 1, 0);
-        }
-        weapon->burstRemaining = 2;
-        weapon->burstTimer     = 0.15f;
-        weapon->burstDirection = GameNormalize(direction);
+        /* Lv.7: 가로 + 세로 동시 레이저 */
+        doHorizontal = true;
+        doVertical   = true;
     } else {
-        SpawnProjectile(game, weapon, direction, 13.0f, 1.8f, 1, 0);
+        /* 일반: 가로 또는 세로 랜덤 */
+        doHorizontal = (rand() % 2 == 0);
+        doVertical   = !doHorizontal;
+    }
+
+    /* 레이저 시각 효과 설정 */
+    game->laser.active     = true;
+    game->laser.timer      = 0.4f;
+    game->laser.horizontal = doHorizontal;
+    game->laser.vertical   = doVertical;
+    game->laser.row        = playerY;
+    game->laser.col        = playerX;
+
+    /* 레이저 범위 내 모든 적 즉시 피해 */
+    for (i = 0; i < MAX_ENEMIES; i++) {
+        Enemy *enemy = &game->enemies[i];
+        if (!enemy->active) continue;
+        {
+            const int ex = GameRound(enemy->position.x);
+            const int ey = GameRound(enemy->position.y);
+            bool hit = false;
+
+            if (doHorizontal && ey == playerY) hit = true;
+            if (doVertical   && ex == playerX) hit = true;
+
+            if (hit) {
+                enemy->health -= weapon->damage;
+                if (enemy->health <= 0) {
+                    EnemyDefeat(game, enemy);
+                }
+            }
+        }
     }
 
     GameRequestSound(game, SOUND_SHOOT);
@@ -275,10 +310,18 @@ void WeaponsUpdate(Game *game, float dt)
     }
 
     Weapon *weapon = &game->weapons[game->activeWeapon];
-    /* 공격속도 배율 적용: 쿨타임을 배율로 나눔 */
-    const float effectiveCooldown = (game->player.attackSpeedMult > 0.0f)
-        ? weapon->cooldown / game->player.attackSpeedMult
-        : weapon->cooldown;
+    float effectiveCooldown;
+
+    /* 원형 Lv.7: 기본 쿨타임 대신 0.4s 고속 발사 */
+    if (game->activeWeapon == WEAPON_MAGIC_BOLT && weapon->level >= 7) {
+        effectiveCooldown = (game->player.attackSpeedMult > 0.0f)
+            ? 0.4f / game->player.attackSpeedMult
+            : 0.4f;
+    } else {
+        effectiveCooldown = (game->player.attackSpeedMult > 0.0f)
+            ? weapon->cooldown / game->player.attackSpeedMult
+            : weapon->cooldown;
+    }
 
     /* 버스트 연사 처리 (부패한 혜성 Lv7) */
     if (weapon->burstRemaining > 0) {
