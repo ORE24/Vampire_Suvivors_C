@@ -9,12 +9,30 @@
       <UniqueIdentifier>{06234617-811E-4AF0-9D84-4938E9A34536}</UniqueIdentifier>
       <Extensions>h</Extensions>
     </Filter>
+    <Filter Include="Assets">
+      <UniqueIdentifier>{3E2E015F-76C3-4F5D-9343-7D4674E8772D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets\Audio">
+      <UniqueIdentifier>{35F0E921-A2B5-499A-80B5-8E12B1EA318B}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\game_config.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="src\game.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\platform.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ranking.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\smoke_test.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -31,11 +49,55 @@
     <ClCompile Include="src\platform.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\ranking.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\smoke_test.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="src\ui.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\weapons.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="assets\audio\game_music.mp3">
+      <Filter>Assets\Audio</Filter>
+    </None>
+    <None Include="assets\audio\game_over.wav">
+      <Filter>Assets\Audio</Filter>
+    </None>
+    <None Include="assets\audio\heal_pickup.wav">
+      <Filter>Assets\Audio</Filter>
+    </None>
+    <None Include="assets\audio\hit.wav">
+      <Filter>Assets\Audio</Filter>
+    </None>
+    <None Include="assets\audio\level_up.wav">
+      <Filter>Assets\Audio</Filter>
+    </None>
+    <None Include="assets\audio\menu_music.mp3">
+      <Filter>Assets\Audio</Filter>
+    </None>
+    <None Include="assets\audio\power_pickup.wav">
+      <Filter>Assets\Audio</Filter>
+    </None>
+    <None Include="assets\audio\shoot.wav">
+      <Filter>Assets\Audio</Filter>
+    </None>
+    <None Include="assets\audio\ui_confirm.wav">
+      <Filter>Assets\Audio</Filter>
+    </None>
+    <None Include="assets\audio\ui_move.wav">
+      <Filter>Assets\Audio</Filter>
+    </None>
+    <None Include="assets\audio\victory.wav">
+      <Filter>Assets\Audio</Filter>
+    </None>
+    <None Include="assets\audio\xp_pickup.wav">
+      <Filter>Assets\Audio</Filter>
+    </None>
   </ItemGroup>
 </Project>

@@ -1,5 +1,6 @@
 build/
 scores.txt
+.codex/
 .vs/
 Vampire_.A0FAFEAE/
 *.vcxproj.user
@@ -9,3 +10,4 @@ Agents.md
 *.suo
 *.wsuo
 .DS_Store
+*.obj

@@ -1,9 +1,10 @@
 # 터미널 서바이버즈: C MVP
 
-터미널 환경에서 실행되는 뱀파이어 서바이벌 스타일 C언어 MVP입니다. `raylib`, `SDL`, `ncurses` 같은 외부 그래픽 라이브러리를 쓰지 않고 ANSI escape sequence와 터미널 bell 소리만 사용합니다.
+터미널 환경에서 실행되는 뱀파이어 서바이벌 스타일 C언어 MVP입니다. `raylib`, `SDL`, `ncurses` 같은 외부 그래픽 라이브러리를 쓰지 않고 ANSI escape sequence를 사용합니다. 사운드는 Windows 기본 WinMM API로 `assets/audio/*.wav` 효과음과 `assets/audio/*.mp3` 배경음악을 재생합니다.
 
 현재 지원 대상은 Windows와 Visual Studio 2022입니다.
 게임 맵은 `96 x 30` 타일로 고정되어 있어 터미널 창 크기와 디스플레이 크기가 달라도 같은 좌표와 규칙으로 진행됩니다.
+현재 승리 목표는 5분 동안 생존해 맵 위에 `GAME CLEAR`를 띄우고 랭킹 등록으로 넘어가는 것입니다.
 
 ## 협업자 시작점
 
@@ -25,7 +26,7 @@ Visual Studio 빌드 결과는 `build\Debug-x64\vampire-survivors-c.exe` 또는 
 - 랭킹 화면: 초기 화면에서 `R`
 - 레벨업 선택: `1`, `2`, `3` 또는 방향키로 선택 후 `Enter` / `Space`
 - 일시정지/재개: 게임 중 `Esc`
-- 게임 종료 후 재시작: `R`
+- 게임 클리어/종료 후 랭킹 등록: `Enter`, `Space`, `S` 또는 `R`
 - 랭킹/결과 화면에서 초기 화면으로 돌아가기: `B` 또는 `Esc`
 - 소리 켜기/끄기: `M`
 - 현재 런 종료: 게임 중 `Q`

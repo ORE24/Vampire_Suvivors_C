@@ -3,27 +3,7 @@
 
 #include <stdbool.h>
 
-#define DEFAULT_MAP_WIDTH 96
-#define DEFAULT_MAP_HEIGHT 30
-#define MAX_MAP_WIDTH DEFAULT_MAP_WIDTH
-#define MAX_MAP_HEIGHT DEFAULT_MAP_HEIGHT
-
-#define MAX_ENEMIES 96
-#define MAX_PROJECTILES 96
-#define MAX_PICKUPS 96
-#define UPGRADE_CHOICES 3
-#define MAX_RANKINGS 5
-
-#define SURVIVAL_SECONDS 420.0   /* 7분 */
-#define MAX_NAME_LEN 15
-
-typedef enum AppScreen {
-    SCREEN_TITLE = 0,
-    SCREEN_SETUP,
-    SCREEN_RANKING,
-    SCREEN_GAME,
-    SCREEN_NAME_INPUT
-} AppScreen;
+#include "game_config.h"
 
 typedef enum GameMode {
     GAME_MODE_PLAYING = 0,
@@ -55,13 +35,27 @@ typedef enum WeaponType {
 } WeaponType;
 
 typedef enum SoundFlag {
-    SOUND_ATTACK = 1u << 0,
-    SOUND_XP = 1u << 1,
-    SOUND_LEVEL_UP = 1u << 2,
-    SOUND_HIT = 1u << 3,
-    SOUND_GAME_OVER = 1u << 4,
-    SOUND_VICTORY = 1u << 5
+    SOUND_UI_MOVE = 1u << 0,
+    SOUND_UI_CONFIRM = 1u << 1,
+    SOUND_SHOOT = 1u << 2,
+    SOUND_XP_PICKUP = 1u << 3,
+    SOUND_HEAL_PICKUP = 1u << 4,
+    SOUND_POWER_PICKUP = 1u << 5,
+    SOUND_LEVEL_UP = 1u << 6,
+    SOUND_HIT = 1u << 7,
+    SOUND_GAME_OVER = 1u << 8,
+    SOUND_VICTORY = 1u << 9
 } SoundFlag;
+
+typedef enum PickupType {
+    PICKUP_XP = 0, // 0이라고 정의 안해줘도 됨(나중에 없애는게 더 깔끔할 듯)
+    PICKUP_TREASURE_CHEST
+} PickupType;
+
+typedef enum MiniEventType {
+    MINI_EVENT_NONE = 0,
+    MINI_EVENT_BAT_STORM
+} MiniEventType;
 
 typedef struct InputState {
     bool up;
@@ -74,6 +68,7 @@ typedef struct InputState {
     bool ranking;
     bool restart;
     bool quit;
+    bool escape;
     bool pauseToggle;
     bool muteToggle;
     int number;
@@ -98,15 +93,16 @@ typedef struct Player {
     float invulnerableTimer;
     int magnetRange;
     /* 패시브 아이템: 회복의 붕대 */
-    int hpRecoveryLevel;    /* 0=없음, 1~3=레벨 */
-    float hpRecoveryTimer;  /* 다음 회복까지 남은 시간 */
+    int hpRecoveryLevel;    /* 0=없음, 1=활성 */
+    int bandageKillCount;   /* 다음 회복까지 누적 킬 수 */
+    float hpRecoveryTimer;  /* 활성 남은 시간 (획득 시 180초, 0되면 소멸) */
     /* 패시브 아이템: 무적의 방패 */
-    int shieldLevel;        /* 0=없음, 1~3=레벨 */
+    int shieldLevel;        /* 0=없음, 1=보유 */
     float shieldTimer;      /* 남은 무적 시간 (>0 이면 무적) */
-    float shieldCooldown;   /* 다음 방패 발동까지 남은 시간 */
     /* 속도 배율 */
-    float attackSpeedMult;  /* 1.0 = 기본, 1.2 = +20%, 1.44 = +40% */
-    float moveSpeedMult;    /* 이동속도 배율 */
+    float attackSpeedMult;
+    float moveSpeedMult;
+    int  shieldHits;  /* 남은 방어 횟수 (최대 5) */
 } Player;
 
 typedef struct Enemy {
@@ -130,11 +126,17 @@ typedef struct Projectile {
     int damage;
     float lifetime;
     int pierce;
+    int areaHit;       /* 0=단일, 1=범위(3x3) */
+    bool orbit;        /* true = 플레이어 주변 궤도 회전 */
+    float orbitAngle;  /* 현재 각도 (radians) */
+    float orbitRadius;
+    float orbitHitCooldown; /* 궤도탄 재타격 쿨타임 */
     char glyph;
 } Projectile;
 
 typedef struct Pickup {
     bool active;
+    PickupType type;
     Vec2 position;
     int value;
     float moveCooldown;
@@ -165,6 +167,10 @@ typedef struct Weapon {
     float cooldown;
     float timer;
     char glyph;
+    /* 버스트 발사용 (부패한 혜성 Lv7) */
+    int   burstRemaining;
+    float burstTimer;
+    Vec2  burstDirection;
 } Weapon;
 
 typedef struct UpgradeOption {
@@ -184,7 +190,7 @@ typedef struct Game {
     Projectile projectiles[MAX_PROJECTILES];
     Pickup pickups[MAX_PICKUPS];
     Weapon weapons[WEAPON_COUNT];
-    WeaponType activeWeapon;    /* 현재 장착 중인 무기 (PPT: 무기 1개) */
+    WeaponType activeWeapon;    /* 현재 장착 중인 무기 */
     UpgradeOption upgrades[UPGRADE_CHOICES];
     int selectedUpgrade;
     float elapsed;
@@ -198,20 +204,18 @@ typedef struct Game {
     int midEnemyChance;
     int highEnemyChance;
     float auraPulseTimer;
+    float shieldBreakTimer;   /* >0 이면 방패 폭발 이팩트 표시 */
+    float speedWarningTimer;  /* >0 이면 "몬스터 강력" 경고 표시 */
+    int   lastSpeedStep;      /* 마지막으로 감지한 속도 단계 */
+    MiniEventType activeMiniEvent;
+    float nextMiniEventTime;
+    float miniEventTimer;
+    float miniEventMessageTimer;
     unsigned int pendingSounds;
     Laser laser;
     TreasureChest chest;
     float chestTimer;   /* 다음 보물상자 스폰까지 남은 시간 */
 } Game;
-
-typedef struct RankingEntry {
-    int score;
-    int seconds;
-    int kills;
-    int level;
-    char result[16];
-    char name[MAX_NAME_LEN + 1];
-} RankingEntry;
 
 float GameDistanceSquared(Vec2 a, Vec2 b);
 Vec2 GameNormalize(Vec2 v);
@@ -226,29 +230,23 @@ const char *GameDifficultyName(GameDifficulty difficulty);
 void GameInit(Game *game, GameDifficulty difficulty);
 void GameUpdate(Game *game, const InputState *input, float dt);
 void GameApplyUpgrade(Game *game, int index);
+void GameStartRewardChoice(Game *game);
 void GameRequestSound(Game *game, unsigned int flags);
 
 void PlayerUpdate(Game *game, const InputState *input, float dt);
 
 void EnemiesSpawnWave(Game *game);
+void EnemiesSpawnBatStorm(Game *game, int count);
 void EnemiesUpdate(Game *game, float dt);
 void EnemiesDamageInRadius(Game *game, Vec2 center, int radius, int damage);
+void EnemyDefeat(Game *game, Enemy *enemy);
 
 void PickupSpawn(Game *game, Vec2 position, int value);
+void PickupSpawnTyped(Game *game, Vec2 position, PickupType type, int value);
 void PickupsUpdate(Game *game, float dt);
 
 void WeaponsUpdate(Game *game, float dt);
 void ProjectilesUpdate(Game *game, float dt);
 void CombatResolve(Game *game);
-
-void UiDrawTitle(void);
-void UiDrawSetup(GameDifficulty selectedDifficulty);
-void UiDrawRanking(const RankingEntry entries[MAX_RANKINGS], int count);
-void UiDrawNameInput(const Game *game, const char *name, int nameLen);
-void UiDrawGame(const Game *game);
-void UiPlaySounds(unsigned int flags, bool enabled);
-
-void RankingLoad(RankingEntry entries[MAX_RANKINGS], int *count);
-void RankingAddAndSave(const Game *game, const char *name, const char *result);
 
 #endif
