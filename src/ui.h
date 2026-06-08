@@ -7,6 +7,7 @@
 
 void UiClearScreen(void);
 void UiDrawTitle(void);
+void UiDrawControls(void);
 void UiDrawSetup(GameDifficulty selectedDifficulty);
 void UiDrawRanking(const RankingEntry entries[MAX_RANKINGS], int count);
 void UiDrawNameInput(const Game *game, const char *name, int nameLen);

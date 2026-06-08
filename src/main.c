@@ -11,6 +11,7 @@
 
 typedef enum AppScreen {
     SCREEN_TITLE = 0,
+    SCREEN_CONTROLS,
     SCREEN_SETUP,
     SCREEN_RANKING,
     SCREEN_GAME,
@@ -20,7 +21,7 @@ typedef enum AppScreen {
 /* 화면 상태를 배경음악 정책으로 변환하는 main 전용 라우터 */
 static PlatformMusic AppMusicForScreen(AppScreen screen)
 {
-    if (screen == SCREEN_TITLE || screen == SCREEN_SETUP) {
+    if (screen == SCREEN_TITLE || screen == SCREEN_CONTROLS || screen == SCREEN_SETUP) {
         return PLATFORM_MUSIC_MENU;
     }
     if (screen == SCREEN_GAME) {
@@ -163,11 +164,23 @@ int main(int argc, char **argv)
                 screen = SCREEN_RANKING;
                 appPendingSounds |= SOUND_UI_CONFIRM;
             } else if (input.start || input.select) {
-                screen = SCREEN_SETUP;
+                screen = SCREEN_CONTROLS;
                 appPendingSounds |= SOUND_UI_CONFIRM;
             }
 
             UiDrawTitle();
+        } else if (screen == SCREEN_CONTROLS) {
+            if (input.quit) {
+                running = false;
+            } else if (input.back || input.escape) {
+                screen = SCREEN_TITLE;
+                appPendingSounds |= SOUND_UI_CONFIRM;
+            } else if (input.start || input.select) {
+                screen = SCREEN_SETUP;
+                appPendingSounds |= SOUND_UI_CONFIRM;
+            }
+
+            UiDrawControls();
         } else if (screen == SCREEN_SETUP) {
             const GameDifficulty previousDifficulty = selectedDifficulty;
 

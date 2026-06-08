@@ -276,7 +276,7 @@ static void DrawGridLine(const Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH], int y, 
  * 한글은 2칸이므로 한글 N글자 있는 줄은 공백을 N개 줄여 보정 */
 void UiDrawTitle(void)
 {
-    BeginCleanFrame();
+    BeginFrame();
     printf("\033[1;31m");
     printf("⣶⣶⣤⣤⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄\n");
     printf("⡿⣏⡭⣡⣒⣢⣤⡄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄\n");
@@ -298,19 +298,23 @@ void UiDrawTitle(void)
     printf("⣄⣤⣽⠟⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⡜⣿⣿⣿⣿⣿⣿⣦⣈⢿⣿⣿⣿⣿⣷⡾⣷⣿⣿⣿⣶⣿⣿⣿⣄⡙⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣯⡋⣥⡐⣐⣂⣋⣏⣥⣠⣴⡂⠛⠛⠿⢿⢿\n");
     printf("⣿⣿⣿⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣛⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣌⢴⠿⠵⠿⠿⠣⢱⣿⣧⠄⢀⠄⠄⢷\n");
     printf("\033[0m\n");
-    printf("터미널 생존 게임입니다.\n\n");
-    printf("\033[1;37m목표\033[0m\n");
-    printf("  5분 동안 생존하면 GAME CLEAR가 뜨고 랭킹 등록으로 넘어갈 수 있습니다.\n\n");
-    printf("\033[1;37m조작\033[0m\n");
-    printf("  WASD / 방향키       : 이동\n");
-    printf("  1, 2, 3 또는 Enter  : 레벨업 보상 선택\n");
-    printf("  1 / 2               : 난이도 선택\n");
-    printf("  R                   : 랭킹 / 재시작\n");
-    printf("  Esc                 : 일시정지 / 재개\n");
-    printf("  M                   : 사운드 토글\n");
-    printf("  Q                   : 종료\n");
-    printf("  타이틀에서 Esc      : 게임 종료\n\n");
-    printf("\033[1;33mS 또는 Enter 게임시작  R 랭킹\033[0m\n");
+    printf("\033[1;33mS / Enter  시작   R  랭킹   Q  종료\033[0m\n");
+    EndFrame();
+}
+
+void UiDrawControls(void)
+{
+    BeginCleanFrame();
+    printf("\033[1;31m============================== 조작법 ================================\033[0m\n\n");
+    printf("  이동          : WASD / 방향키\n");
+    printf("  레벨업 선택   : 1, 2, 3 또는 Enter\n");
+    printf("  난이도 선택   : 1 / 2\n");
+    printf("  랭킹 / 재시작 : R\n");
+    printf("  일시정지      : Esc\n");
+    printf("  사운드 토글   : M\n");
+    printf("  종료          : Q\n\n");
+    printf("  \033[1;37m목표\033[0m  5분 동안 생존하면 GAME CLEAR!\n\n");
+    printf("\033[1;33mS / Enter  게임시작   Esc  뒤로\033[0m\n");
     EndFrame();
 }
 
