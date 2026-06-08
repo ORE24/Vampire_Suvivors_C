@@ -101,7 +101,7 @@ int RunSmokeTest(void)
     }
 
     GameInit(&game, DIFFICULTY_EASY);
-    game.enemies[0] = (Enemy){true, ENEMY_ONE_HP, game.player.position, 1, 1, 1, 2, 10, 0.0f, 0.30f, 'b'};
+    game.enemies[0] = (Enemy){true, ENEMY_BAT, game.player.position, 1, 1, 1, 2, 10, 0.0f, 0.30f, 'b'};
     EnemyDefeat(&game, &game.enemies[0]);
     {
         int xpCount = 0;
@@ -131,7 +131,7 @@ int RunSmokeTest(void)
         return 1;
     }
     for (int i = 0; i < 20; i++) {
-        Enemy enemy = {true, ENEMY_ONE_HP, game.player.position, 1, 1, 1, 0, 0, 0.0f, 0.30f, 'b'};
+        Enemy enemy = {true, ENEMY_BAT, game.player.position, 1, 1, 1, 0, 0, 0.0f, 0.30f, 'b'};
         EnemyDefeat(&game, &enemy);
     }
     if (game.player.health != game.player.maxHealth ||
@@ -141,7 +141,7 @@ int RunSmokeTest(void)
     }
 
     GameInit(&game, DIFFICULTY_EASY);
-    game.enemies[0] = (Enemy){true, ENEMY_ONE_HP, {game.player.position.x + 6.0f, game.player.position.y}, 1, 1, 1, 2, 10, 0.0f, 0.30f, 'b'};
+    game.enemies[0] = (Enemy){true, ENEMY_BAT, {game.player.position.x + 6.0f, game.player.position.y}, 1, 1, 1, 2, 10, 0.0f, 0.30f, 'b'};
     WeaponsUpdate(&game, 1.2f);
     {
         int activeProjectiles = 0;

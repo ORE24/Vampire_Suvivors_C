@@ -15,9 +15,9 @@ typedef enum GameMode {
 } GameMode;
 
 typedef enum EnemyType {
-    ENEMY_ONE_HP = 0,
-    ENEMY_THREE_HP,
-    ENEMY_FORTY_HP,
+    ENEMY_BAT = 0,
+    ENEMY_ZOMBIE,
+    ENEMY_VAMPIRE,
     ENEMY_TYPE_COUNT
 } EnemyType;
 

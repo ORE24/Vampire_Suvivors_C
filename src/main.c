@@ -114,6 +114,7 @@ static RankingResult RankingResultForGame(const Game *game)
 int main(int argc, char **argv)
 {
     AppScreen screen = SCREEN_TITLE;
+    AppScreen previousScreen = SCREEN_TITLE;
     Game game;
     RankingEntry rankings[MAX_RANKINGS];
     int rankingCount = 0;
@@ -202,7 +203,6 @@ int main(int argc, char **argv)
                 GameInit(&game, selectedDifficulty);
                 scoreSaved = false;
                 screen = SCREEN_GAME;
-                UiClearScreen();
                 appPendingSounds |= SOUND_UI_CONFIRM;
             }
 
@@ -251,7 +251,7 @@ int main(int argc, char **argv)
         } else if (screen == SCREEN_NAME_INPUT) {
             /* Esc/Q: 이름 없이 저장 */
             if (input.escape || input.quit) {
-                RankingAddAndSave(&game, "NONAME", RankingResultForGame(&game));
+                RankingAddAndSave(&game, "UNKNOWN", RankingResultForGame(&game));
                 RankingLoad(rankings, &rankingCount);
                 scoreSaved = true;
                 screen = SCREEN_RANKING;
@@ -269,8 +269,8 @@ int main(int argc, char **argv)
                 /* Enter → 저장 후 랭킹 화면 */
                 if (input.select) {
                     if (playerNameLen == 0) {
-                        strncpy(playerName, "NONAME", MAX_NAME_LEN);
-                        playerNameLen = 6;
+                        strncpy(playerName, "UNKNOWN", MAX_NAME_LEN);
+                        playerNameLen = 7;
                     }
                     RankingAddAndSave(&game, playerName, RankingResultForGame(&game));
                     RankingLoad(rankings, &rankingCount);
@@ -280,6 +280,11 @@ int main(int argc, char **argv)
                 }
             }
             UiDrawNameInput(&game, playerName, playerNameLen);
+        }
+
+        if (screen != previousScreen) {
+            UiClearScreen();
+            previousScreen = screen;
         }
 
         UiPlaySounds(appPendingSounds, soundEnabled);
