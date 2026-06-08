@@ -232,9 +232,9 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
             continue;
         }
 
-        if (enemy->type == ENEMY_THREE_HP) {
+        if (enemy->type == ENEMY_ZOMBIE) {
             color = CELL_ENEMY_MID;
-        } else if (enemy->type == ENEMY_FORTY_HP) {
+        } else if (enemy->type == ENEMY_VAMPIRE) {
             color = CELL_ENEMY_HIGH;
         }
 

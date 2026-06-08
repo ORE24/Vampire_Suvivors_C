@@ -180,14 +180,14 @@ static Enemy CreateEnemy(EnemyType type, int x, int y, float elapsed)
         speedScale = 2.0f;
     }
 
-    if (type == ENEMY_ONE_HP) {
+    if (type == ENEMY_BAT) {
         return (Enemy) { true, type, { (float)x, (float)y }, hpBat, hpBat, 1, 2, 10, 0.0f, 0.30f * speedScale, 'b' };
     }
-    if (type == ENEMY_THREE_HP) {
+    if (type == ENEMY_ZOMBIE) {
         return (Enemy) { true, type, { (float)x, (float)y }, hpZomb, hpZomb, 2, 6, 35, 0.0f, 0.50f * speedScale, 'G' };
     }
     return (Enemy) { true, type, { (float)x, (float)y }, hpVamp, hpVamp, 6, 50, 450, 0.0f, 0.95f * speedScale, 'V' };
-} //one = 박쥐, three = 좀비 , forty = 뱀파이어 ->이름 바꾸자
+}
 
 
 
@@ -296,7 +296,7 @@ static bool SpawnEnemyAt(Game *game, EnemyType type, int x, int y)
 }
 
 // [실행 시] 빈 enemies 슬롯이 없으면 즉시 반환한다.
-// 1. elapsed와 확률로 ENEMY_THREE_HP 또는 ENEMY_FORTY_HP 중 타입을 결정한다.
+// 1. elapsed와 확률로 ENEMY_ZOMBIE 또는 ENEMY_VAMPIRE 중 타입을 결정한다.
 // 2. 플레이어에서 최소 거리(10) 이상인 맵 외곽 위치를 최대 20회 시도해 찾는다.
 // 3. 유효한 위치에 CreateEnemy로 적을 생성하고 슬롯에 저장한다.
 // 일반 외곽 웨이브를 하나 생성하고 난이도/시간에 따라 적 종류를 섞는다
@@ -306,7 +306,7 @@ void EnemiesSpawnWave(Game *game)
     int side;
     int x;
     int y;
-    EnemyType type = ENEMY_ONE_HP;
+    EnemyType type = ENEMY_BAT;
 
     for (int i = 0; i < MAX_ENEMIES; i++) {
         if (!game->enemies[i].active) {
@@ -322,9 +322,9 @@ void EnemiesSpawnWave(Game *game)
    // elapsed > highEnemyStart — 충분한 시간이 지났는가 ?
    // rand() % 100 < highEnemyChance — 확률 체크
     if (game->elapsed > game->highEnemyStart && rand() % 100 < game->highEnemyChance) {
-        type = ENEMY_FORTY_HP;
+        type = ENEMY_VAMPIRE;
     } else if (game->elapsed > game->midEnemyStart && rand() % 100 < game->midEnemyChance) {
-        type = ENEMY_THREE_HP;
+        type = ENEMY_ZOMBIE;
     }
 
     const int playerX = GameRound(game->player.position.x);
@@ -356,7 +356,7 @@ void EnemiesSpawnWave(Game *game)
 }
 
 // [실행 시] count번 반복하며 매번 맵 외곽 4면 중 하나를 무작위로 선택한다.
-// 1. 선택된 면의 무작위 위치에 SpawnEnemyAt으로 ENEMY_ONE_HP(박쥐) 소환을 시도한다.
+// 1. 선택된 면의 무작위 위치에 SpawnEnemyAt으로 ENEMY_BAT(박쥐) 소환을 시도한다.
 // 2. 슬롯이 없거나 칸이 막혔으면 해당 반복만 건너뛴다.
 // 박쥐 폭풍 이벤트용 약한 적을 외곽에 한꺼번에 소환
 void EnemiesSpawnBatStorm(Game *game, int count)
@@ -380,7 +380,7 @@ void EnemiesSpawnBatStorm(Game *game, int count)
             y = 1 + rand() % (game->mapHeight - 2);
         }
 
-        (void)SpawnEnemyAt(game, ENEMY_ONE_HP, x, y);
+        (void)SpawnEnemyAt(game, ENEMY_BAT, x, y);
     }
 }
 
