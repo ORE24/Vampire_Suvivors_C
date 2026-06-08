@@ -190,7 +190,7 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
         }
     }
 
-    /* 레이저 렌더링: 플레이어 기준 해당 방향만 'r'로 표시 */
+    /* 별 무기 공격 렌더링: 플레이어 기준 해당 방향만 '|'로 표시 */
     if (game->laser.active) {
         const int px = game->laser.playerX;
         const int py = game->laser.playerY;
@@ -450,7 +450,7 @@ void UiDrawGame(const Game *game)
                "\033[38;5;208mG\033[0m 좀비  \033[1;35mV\033[0m 뱀파이어  "
                "\033[38;5;196mo\033[0m 원형  \033[1;33m^\033[0m 삼각형  "
                "\033[1;33m+\033[0m 사각형  \033[1;33m*\033[0m 별  "
-               "\033[1;33mr\033[0m 레이저  \033[1;33m$\033[0m 보물상자  "
+               "\033[1;33m$\033[0m 보물상자  "
                "\033[1;34m@\033[0m 방패  \033[1;32m+\033[0m XP\033[K\n\n");
     }
 
