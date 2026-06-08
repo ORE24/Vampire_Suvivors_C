@@ -186,51 +186,30 @@ static void FireSquare(Game *game, Weapon *weapon)
     GameRequestSound(game, SOUND_SHOOT);
 }
 
-/* ★ 별: 상하좌우 중 1방향 레이저 / Lv.7: 4방향 동시 */
+/* ★ 별: 가장 가까운 적을 향해 발사 / Lv.7: 3발 부채꼴 */
 static void FireStar(Game *game, Weapon *weapon)
 {
-    const int playerX = GameRound(game->player.position.x);
-    const int playerY = GameRound(game->player.position.y);
-    int i;
+    Vec2 targetPosition;
+    Vec2 direction;
+    float baseAngle;
 
-    game->laser.active  = true;
-    game->laser.timer   = 0.4f;
-    game->laser.playerX = playerX;
-    game->laser.playerY = playerY;
-
-    if (weapon->level >= 7) {
-        game->laser.goLeft  = true;
-        game->laser.goRight = true;
-        game->laser.goUp    = true;
-        game->laser.goDown  = true;
-    } else {
-        const int dir = rand() % 4; /* 0=왼쪽 1=오른쪽 2=위 3=아래 */
-        game->laser.goLeft  = (dir == 0);
-        game->laser.goRight = (dir == 1);
-        game->laser.goUp    = (dir == 2);
-        game->laser.goDown  = (dir == 3);
+    if (!FindNearestTargetPosition(game, weapon->range, &targetPosition)) {
+        return;
     }
 
-    for (i = 0; i < MAX_ENEMIES; i++) {
-        Enemy *enemy = &game->enemies[i];
-        if (!enemy->active) continue;
-        {
-            const int ex = GameRound(enemy->position.x);
-            const int ey = GameRound(enemy->position.y);
-            bool hit = false;
+    direction.x = targetPosition.x - game->player.position.x;
+    direction.y = targetPosition.y - game->player.position.y;
+    direction = GameNormalize(direction);
+    baseAngle = atan2f(direction.y, direction.x);
 
-            if (game->laser.goLeft  && ey == playerY && ex < playerX) hit = true;
-            if (game->laser.goRight && ey == playerY && ex > playerX) hit = true;
-            if (game->laser.goUp    && ex == playerX && ey < playerY) hit = true;
-            if (game->laser.goDown  && ex == playerX && ey > playerY) hit = true;
-
-            if (hit) {
-                enemy->health -= weapon->damage;
-                if (enemy->health <= 0) {
-                    EnemyDefeat(game, enemy);
-                }
-            }
+    if (weapon->level >= 7) {
+        int s;
+        for (s = -1; s <= 1; s++) {
+            const float angle = baseAngle + (float)s * 0.2f;
+            SpawnProjectile(game, weapon, (Vec2){cosf(angle), sinf(angle)}, 14.0f, 2.0f, 2, 0);
         }
+    } else {
+        SpawnProjectile(game, weapon, direction, 13.0f, 1.8f, 1, 0);
     }
 
     GameRequestSound(game, SOUND_SHOOT);
