@@ -186,30 +186,65 @@ static void FireSquare(Game *game, Weapon *weapon)
     GameRequestSound(game, SOUND_SHOOT);
 }
 
-/* ★ 별: 가장 가까운 적을 향해 발사 / Lv.7: 3발 부채꼴 */
+/* ★ 별: 가장 가까운 적의 상하좌우 방향으로 레이저 / Lv.7: 4방향 동시 */
 static void FireStar(Game *game, Weapon *weapon)
 {
-    Vec2 targetPosition;
-    Vec2 direction;
-    float baseAngle;
+    const int playerX = GameRound(game->player.position.x);
+    const int playerY = GameRound(game->player.position.y);
+    int i;
 
-    if (!FindNearestTargetPosition(game, weapon->range, &targetPosition)) {
-        return;
-    }
-
-    direction.x = targetPosition.x - game->player.position.x;
-    direction.y = targetPosition.y - game->player.position.y;
-    direction = GameNormalize(direction);
-    baseAngle = atan2f(direction.y, direction.x);
+    game->laser.active  = true;
+    game->laser.timer   = 0.4f;
+    game->laser.playerX = playerX;
+    game->laser.playerY = playerY;
+    game->laser.goLeft  = false;
+    game->laser.goRight = false;
+    game->laser.goUp    = false;
+    game->laser.goDown  = false;
 
     if (weapon->level >= 7) {
-        int s;
-        for (s = -1; s <= 1; s++) {
-            const float angle = baseAngle + (float)s * 0.2f;
-            SpawnProjectile(game, weapon, (Vec2){cosf(angle), sinf(angle)}, 14.0f, 2.0f, 2, 0);
-        }
+        game->laser.goLeft  = true;
+        game->laser.goRight = true;
+        game->laser.goUp    = true;
+        game->laser.goDown  = true;
     } else {
-        SpawnProjectile(game, weapon, direction, 13.0f, 1.8f, 1, 0);
+        /* 가장 가까운 적의 상대 위치로 방향 결정 */
+        const int nearestIndex = FindNearestEnemy(game, weapon->range);
+        if (nearestIndex >= 0) {
+            const float dx = game->enemies[nearestIndex].position.x - game->player.position.x;
+            const float dy = game->enemies[nearestIndex].position.y - game->player.position.y;
+            if (fabsf(dx) >= fabsf(dy)) {
+                game->laser.goRight = (dx >= 0.0f);
+                game->laser.goLeft  = (dx < 0.0f);
+            } else {
+                game->laser.goDown = (dy >= 0.0f);
+                game->laser.goUp   = (dy < 0.0f);
+            }
+        } else {
+            return; /* 사거리 내 적 없으면 발사 안 함 */
+        }
+    }
+
+    for (i = 0; i < MAX_ENEMIES; i++) {
+        Enemy *enemy = &game->enemies[i];
+        if (!enemy->active) continue;
+        {
+            const int ex = GameRound(enemy->position.x);
+            const int ey = GameRound(enemy->position.y);
+            bool hit = false;
+
+            if (game->laser.goLeft  && ey == playerY && ex < playerX) hit = true;
+            if (game->laser.goRight && ey == playerY && ex > playerX) hit = true;
+            if (game->laser.goUp    && ex == playerX && ey < playerY) hit = true;
+            if (game->laser.goDown  && ex == playerX && ey > playerY) hit = true;
+
+            if (hit) {
+                enemy->health -= weapon->damage;
+                if (enemy->health <= 0) {
+                    EnemyDefeat(game, enemy);
+                }
+            }
+        }
     }
 
     GameRequestSound(game, SOUND_SHOOT);
