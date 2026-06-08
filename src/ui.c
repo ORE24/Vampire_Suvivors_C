@@ -197,22 +197,22 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
         if (game->laser.goLeft) {
             for (int x = 1; x < px; x++)
                 if (!GameMapIsBlocked(game, x, py))
-                    PutCell(game, grid, x, py, '|', CELL_TEXT);
+                    PutCell(game, grid, x, py, '*', CELL_TEXT);
         }
         if (game->laser.goRight) {
             for (int x = px + 1; x < game->mapWidth - 1; x++)
                 if (!GameMapIsBlocked(game, x, py))
-                    PutCell(game, grid, x, py, '|', CELL_TEXT);
+                    PutCell(game, grid, x, py, '*', CELL_TEXT);
         }
         if (game->laser.goUp) {
             for (int y = 1; y < py; y++)
                 if (!GameMapIsBlocked(game, px, y))
-                    PutCell(game, grid, px, y, '|', CELL_TEXT);
+                    PutCell(game, grid, px, y, '*', CELL_TEXT);
         }
         if (game->laser.goDown) {
             for (int y = py + 1; y < game->mapHeight - 1; y++)
                 if (!GameMapIsBlocked(game, px, y))
-                    PutCell(game, grid, px, y, '|', CELL_TEXT);
+                    PutCell(game, grid, px, y, '*', CELL_TEXT);
         }
     }
 
