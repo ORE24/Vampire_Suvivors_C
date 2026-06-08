@@ -113,6 +113,7 @@ static RankingResult RankingResultForGame(const Game *game)
 int main(int argc, char **argv)
 {
     AppScreen screen = SCREEN_TITLE;
+    AppScreen previousScreen = SCREEN_TITLE;
     Game game;
     RankingEntry rankings[MAX_RANKINGS];
     int rankingCount = 0;
@@ -189,7 +190,6 @@ int main(int argc, char **argv)
                 GameInit(&game, selectedDifficulty);
                 scoreSaved = false;
                 screen = SCREEN_GAME;
-                UiClearScreen();
                 appPendingSounds |= SOUND_UI_CONFIRM;
             }
 
@@ -267,6 +267,11 @@ int main(int argc, char **argv)
                 }
             }
             UiDrawNameInput(&game, playerName, playerNameLen);
+        }
+
+        if (screen != previousScreen) {
+            UiClearScreen();
+            previousScreen = screen;
         }
 
         UiPlaySounds(appPendingSounds, soundEnabled);
