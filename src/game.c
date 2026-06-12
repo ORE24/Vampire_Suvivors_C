@@ -304,8 +304,6 @@ void GameInit(Game *game, GameDifficulty difficulty)
     game->player.bandageKillCount = 0;
     game->player.shieldLevel = 0;
     game->player.shieldTimer = 0.0f;
-    game->player.shieldHits = 0;
-    game->shieldBreakTimer = 0.0f;
     game->player.attackSpeedMult = 1.0f;
     game->player.moveSpeedMult = 1.0f;
 
@@ -347,7 +345,6 @@ void GameInit(Game *game, GameDifficulty difficulty)
         game->highEnemyChance = 6;
     }
     game->spawnInterval = game->spawnStartInterval;
-    game->auraPulseTimer = 0.0f;
     game->activeMiniEvent = MINI_EVENT_NONE;
     game->nextMiniEventTime = 30.0f;
     game->miniEventTimer = 0.0f;
@@ -393,11 +390,9 @@ void GameApplyUpgrade(Game *game, int index)
                 game->player.hpRecoveryTimer = HP_RECOVERY_SECONDS;
             }
             break;
-        case 7: /* 무적의 방패: 5회 방어 또는 20초 후 화면 전멸 */
+        case 7: /* 무적의 방패: 10초 동안 피해 무효 */
             if (game->player.shieldTimer <= 0.0f) {
-                game->player.shieldTimer = 20.0f;
-                game->player.shieldHits  = 5;
-                game->auraPulseTimer = 0.22f;
+                game->player.shieldTimer = 10.0f;
             }
             break;
         default:
@@ -517,19 +512,8 @@ void GameUpdate(Game *game, const InputState *input, float dt)
     }
     PickupsUpdate(game, dt);
 
-    if (game->auraPulseTimer > 0.0f) {
-        game->auraPulseTimer -= dt;
-        if (game->auraPulseTimer < 0.0f) {
-            game->auraPulseTimer = 0.0f;
-        }
-    }
 
-    if (game->shieldBreakTimer > 0.0f) {
-        game->shieldBreakTimer -= dt;
-        if (game->shieldBreakTimer < 0.0f) {
-            game->shieldBreakTimer = 0.0f;
-        }
-    }
+
 
     if (game->player.xp >= game->player.xpToNextLevel) {
         game->player.xp -= game->player.xpToNextLevel;

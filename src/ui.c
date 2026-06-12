@@ -149,35 +149,7 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
         }
     }
 
-    if (game->shieldBreakTimer > 0.0f) {
-        /* 방패 폭발: 맵 전체 바닥 타일을 깜빡이는 * 로 덮음 */
-        if (((int)(game->shieldBreakTimer * 8.0f) % 2) == 0) {
-            for (int y = 0; y < game->mapHeight; y++) {
-                for (int x = 0; x < game->mapWidth; x++) {
-                    if (!GameMapIsBlocked(game, x, y)) {
-                        PutCell(game, grid, x, y, '*', CELL_AURA);
-                    }
-                }
-            }
-        }
-    }
 
-    if (game->auraPulseTimer > 0.0f) {
-        const int centerX = GameRound(game->player.position.x);
-        const int centerY = GameRound(game->player.position.y);
-        const int radius = game->weapons[WEAPON_HOLY_AURA].range;
-        const int radiusSquared = radius * radius;
-
-        for (int y = centerY - radius; y <= centerY + radius; y++) {
-            for (int x = centerX - radius; x <= centerX + radius; x++) {
-                const int dx = x - centerX;
-                const int dy = y - centerY;
-                if (dx * dx + dy * dy <= radiusSquared && !GameMapIsBlocked(game, x, y)) {
-                    PutCell(game, grid, x, y, '~', CELL_AURA);
-                }
-            }
-        }
-    }
 
     for (int i = 0; i < MAX_PICKUPS; i++) {
         const Pickup *pickup = &game->pickups[i];
@@ -242,12 +214,8 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
     }
 
     if (game->player.shieldTimer > 0.0f) {
-        /* 방패 무적 중: 파란색으로 점멸 */
-        if (((int)(game->player.shieldTimer * 4.0f) % 2) == 0) {
-            PutCell(game, grid, GameRound(game->player.position.x), GameRound(game->player.position.y), '@', CELL_AURA);
-        } else {
-            PutCell(game, grid, GameRound(game->player.position.x), GameRound(game->player.position.y), '@', CELL_PLAYER);
-        }
+        /* 방패 활성 중: 파란색 고정 */
+        PutCell(game, grid, GameRound(game->player.position.x), GameRound(game->player.position.y), '@', CELL_AURA);
     } else if (game->player.invulnerableTimer <= 0.0f || ((int)(game->player.invulnerableTimer * 12.0f) % 2) == 0) {
         PutCell(game, grid, GameRound(game->player.position.x), GameRound(game->player.position.y), '@', CELL_PLAYER);
     }
@@ -440,8 +408,8 @@ void UiDrawGame(const Game *game)
                 game->player.bandageKillCount, game->player.hpRecoveryTimer);
         }
         if (game->player.shieldTimer > 0.0f) {
-            printf("  \033[1;34mSHIELD %d회 남음 / %.0fs\033[0m",
-                game->player.shieldHits, game->player.shieldTimer);
+            printf("  \033[1;34mSHIELD %.0fs\033[0m",
+                game->player.shieldTimer);
         }
         printf("\033[K\n");
 
