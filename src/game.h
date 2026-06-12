@@ -102,7 +102,6 @@ typedef struct Player {
     /* 속도 배율 */
     float attackSpeedMult;
     float moveSpeedMult;
-    int  shieldHits;  /* 남은 방어 횟수 (최대 5) */
 } Player;
 
 typedef struct Enemy {
@@ -196,7 +195,6 @@ typedef struct Game {
     int midEnemyChance;
     int highEnemyChance;
     float auraPulseTimer;
-    float shieldBreakTimer;   /* >0 이면 방패 폭발 이팩트 표시 */
     float speedWarningTimer;  /* >0 이면 "몬스터 강력" 경고 표시 */
     int   lastSpeedStep;      /* 마지막으로 감지한 속도 단계 */
     MiniEventType activeMiniEvent;
