@@ -150,22 +150,6 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
     }
 
 
-    if (game->auraPulseTimer > 0.0f) {
-        const int centerX = GameRound(game->player.position.x);
-        const int centerY = GameRound(game->player.position.y);
-        const int radius = game->weapons[WEAPON_HOLY_AURA].range;
-        const int radiusSquared = radius * radius;
-
-        for (int y = centerY - radius; y <= centerY + radius; y++) {
-            for (int x = centerX - radius; x <= centerX + radius; x++) {
-                const int dx = x - centerX;
-                const int dy = y - centerY;
-                if (dx * dx + dy * dy <= radiusSquared && !GameMapIsBlocked(game, x, y)) {
-                    PutCell(game, grid, x, y, '~', CELL_AURA);
-                }
-            }
-        }
-    }
 
     for (int i = 0; i < MAX_PICKUPS; i++) {
         const Pickup *pickup = &game->pickups[i];

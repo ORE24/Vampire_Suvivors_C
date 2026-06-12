@@ -194,7 +194,6 @@ typedef struct Game {
     float highEnemyStart;
     int midEnemyChance;
     int highEnemyChance;
-    float auraPulseTimer;
     float speedWarningTimer;  /* >0 이면 "몬스터 강력" 경고 표시 */
     int   lastSpeedStep;      /* 마지막으로 감지한 속도 단계 */
     MiniEventType activeMiniEvent;
