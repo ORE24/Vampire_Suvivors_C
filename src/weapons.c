@@ -267,22 +267,6 @@ void WeaponsUpdate(Game *game, float dt)
             : weapon->cooldown;
     }
 
-    /* 버스트 연사 처리 (부패한 혜성 Lv7) */
-    if (weapon->burstRemaining > 0) {
-        weapon->burstTimer -= dt;
-        if (weapon->burstTimer <= 0.0f) {
-            Vec2 dir = weapon->burstDirection;
-            float baseAngle = atan2f(dir.y, dir.x);
-            for (int s = -1; s <= 1; s++) {
-                float a = baseAngle + (float)s * 0.18f;
-                SpawnProjectile(game, weapon, (Vec2){cosf(a), sinf(a)}, 14.0f, 2.0f, 1, 0);
-            }
-            GameRequestSound(game, SOUND_SHOOT);
-            weapon->burstRemaining--;
-            weapon->burstTimer = 0.15f;
-        }
-    }
-
     weapon->timer -= dt;
     if (weapon->timer <= 0.0f) {
         switch (game->activeWeapon) {

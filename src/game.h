@@ -158,10 +158,6 @@ typedef struct Weapon {
     float cooldown;
     float timer;
     char glyph;
-    /* 버스트 발사용 (부패한 혜성 Lv7) */
-    int   burstRemaining;
-    float burstTimer;
-    Vec2  burstDirection;
 } Weapon;
 
 typedef struct UpgradeOption {

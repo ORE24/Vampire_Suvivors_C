@@ -76,11 +76,6 @@ static void BeginFrameFull(void)
     printf("\033[2J\033[H");  /* 화면 전체 지우기 + 맨 위로 */
 }
 
-static void BeginCleanFrame(void)
-{
-    printf("\033[H\033[2J");
-}
-
 static void EndFrame(void)
 {
     printf("\033[0m\033[J");  /* 남은 내용 지우기 */
@@ -272,7 +267,7 @@ void UiDrawTitle(void)
 
 void UiDrawControls(void)
 {
-    BeginCleanFrame();
+    BeginFrameFull();
     printf("\033[1;31m============================== 조작법 ================================\033[0m\n\n");
     printf("  이동          : WASD / 방향키\n");
     printf("  레벨업 선택   : 1, 2, 3 또는 Enter\n");
@@ -288,7 +283,7 @@ void UiDrawControls(void)
 
 void UiDrawSetup(GameDifficulty selectedDifficulty)
 {
-    BeginCleanFrame();
+    BeginFrameFull();
     printf("\033[1;31m============================== SETUP ================================\033[0m\n\n");
     printf("게임 시작 전 난이도를 선택하세요.\n\n");
     printf("%s[1] 이지\033[0m  HP 14, 느린 웨이브, 늦은 흡혈귀\n",
@@ -303,7 +298,7 @@ void UiDrawSetup(GameDifficulty selectedDifficulty)
 /* 저장된 랭킹을 터미널 표 형태로 출력 */
 void UiDrawRanking(const RankingEntry entries[MAX_RANKINGS], int count)
 {
-    BeginCleanFrame();
+    BeginFrameFull();
     printf("\033[1;33m============================== RANKING ==============================\033[0m\n\n");
 
     if (count == 0) {
