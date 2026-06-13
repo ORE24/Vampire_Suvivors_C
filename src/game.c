@@ -310,13 +310,13 @@ void GameInit(Game *game, GameDifficulty difficulty)
     /* 시작 무기: 원형(○) Lv.1, 나머지는 미획득(Lv.0) */
     game->activeWeapon = WEAPON_MAGIC_BOLT;
     game->weapons[WEAPON_MAGIC_BOLT] =
-        (Weapon){WEAPON_MAGIC_BOLT, 1, 20, 1, 18, 1.00f, 0.0f, 'o', 0, 0.0f, {0.0f, 0.0f}};
+        (Weapon){WEAPON_MAGIC_BOLT, 1, 20, 1, 18, 1.00f, 0.0f, 'o'};
     game->weapons[WEAPON_HOLY_AURA] =
-        (Weapon){WEAPON_HOLY_AURA, 0, 4, 3, 18, 0.40f, 0.0f, '^', 0, 0.0f, {0.0f, 0.0f}};
+        (Weapon){WEAPON_HOLY_AURA, 0, 4, 3, 18, 0.40f, 0.0f, '^'};
     game->weapons[WEAPON_PIERCING_LANCE] =
-        (Weapon){WEAPON_PIERCING_LANCE, 0, 10, 4, 18, 1.00f, 0.0f, '+', 0, 0.0f, {0.0f, 0.0f}};
+        (Weapon){WEAPON_PIERCING_LANCE, 0, 10, 4, 18, 1.00f, 0.0f, '+'};
     game->weapons[WEAPON_STAR_BURST] =
-        (Weapon){WEAPON_STAR_BURST, 0, 40, 1, 14, 2.50f, 0.0f, '*', 0, 0.0f, {0.0f, 0.0f}};
+        (Weapon){WEAPON_STAR_BURST, 0, 40, 1, 14, 2.50f, 0.0f, '*'};
 
     /* 레이저 초기화 */
     game->laser.active = false;
