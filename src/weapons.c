@@ -256,11 +256,11 @@ void WeaponsUpdate(Game *game, float dt)
     Weapon *weapon = &game->weapons[game->activeWeapon];
     float effectiveCooldown;
 
-    /* 원형 Lv.7: 기본 쿨타임 대신 0.4s 고속 발사 */
+    /* 원형 Lv.7: 기본 쿨타임 대신 0.2s 고속 발사 */
     if (game->activeWeapon == WEAPON_MAGIC_BOLT && weapon->level >= 7) {
         effectiveCooldown = (game->player.attackSpeedMult > 0.0f)
-            ? 0.4f / game->player.attackSpeedMult
-            : 0.4f;
+            ? 0.2f / game->player.attackSpeedMult
+            : 0.2f;
     } else {
         effectiveCooldown = (game->player.attackSpeedMult > 0.0f)
             ? weapon->cooldown / game->player.attackSpeedMult
