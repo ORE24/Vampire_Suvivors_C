@@ -16,7 +16,8 @@ typedef enum CellColor {
     CELL_PICKUP_POWER,
     CELL_AURA,
     CELL_TEXT,
-    CELL_BLOOD
+    CELL_BLOOD,
+    CELL_BLOOD_DARK
 } CellColor;
 
 typedef struct Cell {
@@ -51,6 +52,8 @@ static const char *ColorCode(CellColor color)
             return "\033[1;37m";
         case CELL_BLOOD:
             return "\033[38;5;196m";
+        case CELL_BLOOD_DARK:
+            return "\033[0;38;5;124m";
     }
 
     return "\033[0m";
@@ -133,7 +136,7 @@ static void PickupAppearance(PickupType type, char *glyph, CellColor *color)
     *color = CELL_XP;
 
     if (type == PICKUP_TREASURE_CHEST) {
-        *glyph = 'C';
+        *glyph = '$';
         *color = CELL_PICKUP_POWER;
     }
 }
@@ -149,35 +152,7 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
         }
     }
 
-    if (game->shieldBreakTimer > 0.0f) {
-        /* 방패 폭발: 맵 전체 바닥 타일을 깜빡이는 * 로 덮음 */
-        if (((int)(game->shieldBreakTimer * 8.0f) % 2) == 0) {
-            for (int y = 0; y < game->mapHeight; y++) {
-                for (int x = 0; x < game->mapWidth; x++) {
-                    if (!GameMapIsBlocked(game, x, y)) {
-                        PutCell(game, grid, x, y, '*', CELL_AURA);
-                    }
-                }
-            }
-        }
-    }
 
-    if (game->auraPulseTimer > 0.0f) {
-        const int centerX = GameRound(game->player.position.x);
-        const int centerY = GameRound(game->player.position.y);
-        const int radius = game->weapons[WEAPON_HOLY_AURA].range;
-        const int radiusSquared = radius * radius;
-
-        for (int y = centerY - radius; y <= centerY + radius; y++) {
-            for (int x = centerX - radius; x <= centerX + radius; x++) {
-                const int dx = x - centerX;
-                const int dy = y - centerY;
-                if (dx * dx + dy * dy <= radiusSquared && !GameMapIsBlocked(game, x, y)) {
-                    PutCell(game, grid, x, y, '~', CELL_AURA);
-                }
-            }
-        }
-    }
 
     for (int i = 0; i < MAX_PICKUPS; i++) {
         const Pickup *pickup = &game->pickups[i];
@@ -190,29 +165,29 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
         }
     }
 
-    /* 보물상자 렌더링 */
-    if (game->chest.active) {
-        PutCell(game, grid,
-            GameRound(game->chest.position.x),
-            GameRound(game->chest.position.y),
-            '$', CELL_PROJECTILE);
-    }
-
-    /* 레이저 렌더링: 해당 행/열 전체를 'r'로 표시 */
+    /* 혈사포 레이저 렌더링: 플레이어 기준 해당 방향만 '*'로 표시 */
     if (game->laser.active) {
-        if (game->laser.horizontal) {
-            for (int x = 1; x < game->mapWidth - 1; x++) {
-                if (!GameMapIsBlocked(game, x, game->laser.row)) {
-                    PutCell(game, grid, x, game->laser.row, 'r', CELL_PROJECTILE);
-                }
-            }
+        const int px = game->laser.playerX;
+        const int py = game->laser.playerY;
+        if (game->laser.goLeft) {
+            for (int x = 1; x < px; x++)
+                if (!GameMapIsBlocked(game, x, py))
+                    PutCell(game, grid, x, py, '*', CELL_BLOOD_DARK);
         }
-        if (game->laser.vertical) {
-            for (int y = 1; y < game->mapHeight - 1; y++) {
-                if (!GameMapIsBlocked(game, game->laser.col, y)) {
-                    PutCell(game, grid, game->laser.col, y, 'r', CELL_PROJECTILE);
-                }
-            }
+        if (game->laser.goRight) {
+            for (int x = px + 1; x < game->mapWidth - 1; x++)
+                if (!GameMapIsBlocked(game, x, py))
+                    PutCell(game, grid, x, py, '*', CELL_BLOOD_DARK);
+        }
+        if (game->laser.goUp) {
+            for (int y = 1; y < py; y++)
+                if (!GameMapIsBlocked(game, px, y))
+                    PutCell(game, grid, px, y, '*', CELL_BLOOD_DARK);
+        }
+        if (game->laser.goDown) {
+            for (int y = py + 1; y < game->mapHeight - 1; y++)
+                if (!GameMapIsBlocked(game, px, y))
+                    PutCell(game, grid, px, y, '*', CELL_BLOOD_DARK);
         }
     }
 
@@ -220,7 +195,8 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
         const Projectile *projectile = &game->projectiles[i];
         if (projectile->active) {
             PutCell(game, grid, GameRound(projectile->position.x), GameRound(projectile->position.y), projectile->glyph,
-                projectile->glyph == 'o' ? CELL_BLOOD : CELL_PROJECTILE);
+                projectile->glyph == 'o' ? CELL_BLOOD :
+                projectile->glyph == '*' ? CELL_BLOOD_DARK : CELL_PROJECTILE);
         }
     }
 
@@ -242,12 +218,8 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
     }
 
     if (game->player.shieldTimer > 0.0f) {
-        /* 방패 무적 중: 파란색으로 점멸 */
-        if (((int)(game->player.shieldTimer * 4.0f) % 2) == 0) {
-            PutCell(game, grid, GameRound(game->player.position.x), GameRound(game->player.position.y), '@', CELL_AURA);
-        } else {
-            PutCell(game, grid, GameRound(game->player.position.x), GameRound(game->player.position.y), '@', CELL_PLAYER);
-        }
+        /* 방패 활성 중: 파란색 고정 */
+        PutCell(game, grid, GameRound(game->player.position.x), GameRound(game->player.position.y), '@', CELL_AURA);
     } else if (game->player.invulnerableTimer <= 0.0f || ((int)(game->player.invulnerableTimer * 12.0f) % 2) == 0) {
         PutCell(game, grid, GameRound(game->player.position.x), GameRound(game->player.position.y), '@', CELL_PLAYER);
     }
@@ -270,7 +242,10 @@ static void DrawGridLine(const Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH], int y, 
     printf("\033[0m\n");
 }
 
-/* 첫 화면: 목표와 주요 조작을 한 번에 보여준다 */
+/* 첫 화면: 뱀파이어 서바이버즈 스타일 타이틀
+ * 설계: 외부박스 = ╔+95×═+╗ = 97 visual
+ *       각 줄   = ║ + [95 visual 내용] + ║ = 97 visual
+ * 한글은 2칸이므로 한글 N글자 있는 줄은 공백을 N개 줄여 보정 */
 void UiDrawTitle(void)
 {
     BeginFrame();
@@ -295,26 +270,30 @@ void UiDrawTitle(void)
     printf("⣄⣤⣽⠟⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⡜⣿⣿⣿⣿⣿⣿⣦⣈⢿⣿⣿⣿⣿⣷⡾⣷⣿⣿⣿⣶⣿⣿⣿⣄⡙⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣯⡋⣥⡐⣐⣂⣋⣏⣥⣠⣴⡂⠛⠛⠿⢿⢿\n");
     printf("⣿⣿⣿⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣛⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣌⢴⠿⠵⠿⠿⠣⢱⣿⣧⠄⢀⠄⠄⢷\n");
     printf("\033[0m\n");
-    printf("터미널 생존 게임입니다.\n\n");
-    printf("\033[1;37m목표\033[0m\n");
-    printf("  5분 동안 생존하면 GAME CLEAR가 뜨고 랭킹 등록으로 넘어갈 수 있습니다.\n\n");
-    printf("\033[1;37m조작\033[0m\n");
-    printf("  WASD / 방향키       : 이동\n");
-    printf("  1, 2, 3 또는 Enter  : 레벨업 보상 선택\n");
-    printf("  1 / 2               : 난이도 선택\n");
-    printf("  R                   : 랭킹 / 재시작\n");
-    printf("  Esc                 : 일시정지 / 재개\n");
-    printf("  M                   : 사운드 토글\n");
-    printf("  Q                   : 종료\n");
-    printf("  타이틀에서 Esc      : 게임 종료\n\n");
-    printf("\033[1;33mS 또는 Enter 게임시작  R 랭킹\033[0m\n");
+    printf("\033[1;33mS / Enter  시작   R  랭킹   Q  종료\033[0m\n");
+    EndFrame();
+}
+
+void UiDrawControls(void)
+{
+    BeginCleanFrame();
+    printf("\033[1;31m============================== 조작법 ================================\033[0m\n\n");
+    printf("  이동          : WASD / 방향키\n");
+    printf("  레벨업 선택   : 1, 2, 3 또는 Enter\n");
+    printf("  난이도 선택   : 1 / 2\n");
+    printf("  랭킹 / 재시작 : R\n");
+    printf("  일시정지      : Esc\n");
+    printf("  사운드 토글   : M\n");
+    printf("  종료          : Q\n\n");
+    printf("  \033[1;37m목표\033[0m  5분 동안 생존하면 GAME CLEAR!\n\n");
+    printf("\033[1;33mS / Enter  게임시작   Esc  뒤로\033[0m\n");
     EndFrame();
 }
 
 void UiDrawSetup(GameDifficulty selectedDifficulty)
 {
     BeginCleanFrame();
-    printf("\033[1;36m============================== SETUP ================================\033[0m\n\n");
+    printf("\033[1;31m============================== SETUP ================================\033[0m\n\n");
     printf("게임 시작 전 난이도를 선택하세요.\n\n");
     printf("%s[1] 이지\033[0m  HP 14, 느린 웨이브, 늦은 흡혈귀\n",
         selectedDifficulty == DIFFICULTY_EASY ? "\033[1;32m> " : "  ");
@@ -415,7 +394,7 @@ void UiDrawGame(const Game *game)
     /* 줄3: 무기 정보 */
     {
         static const char *weaponNames[WEAPON_COUNT] = {
-            "원형(○)", "삼각형(△)", "사각형(□)", "별(★)"
+            "피의 원반", "부패한 살점", "파멸의 십자", "혈사포"
         };
         const Weapon *aw = &game->weapons[game->activeWeapon];
 
@@ -433,18 +412,20 @@ void UiDrawGame(const Game *game)
                 game->player.bandageKillCount, game->player.hpRecoveryTimer);
         }
         if (game->player.shieldTimer > 0.0f) {
-            printf("  \033[1;34mSHIELD %d회 남음 / %.0fs\033[0m",
-                game->player.shieldHits, game->player.shieldTimer);
+            printf("  \033[1;34mSHIELD %.0fs\033[0m",
+                game->player.shieldTimer);
         }
         printf("\033[K\n");
 
-        /* Legend */
-        printf("\033[1;36m@\033[0m you  \033[1;31mb\033[0m 박쥐  "
-               "\033[38;5;208mG\033[0m 좀비  \033[1;35mV\033[0m 뱀파이어  "
-               "\033[38;5;196mo\033[0m 원형  \033[1;33m^\033[0m 삼각형  "
-               "\033[1;33m+\033[0m 사각형  \033[1;33m*\033[0m 별  "
-               "\033[1;33mr\033[0m 레이저  \033[1;33m$\033[0m 보물상자  "
-               "\033[1;34m@\033[0m 방패  \033[1;32m+\033[0m XP\033[K\n\n");
+        /* Legend: 레벨업 화면은 줄 수가 많아 터미널 스크롤이 생기므로 숨김 */
+        if (game->mode != GAME_MODE_LEVEL_UP) {
+            printf("\033[1;36m@\033[0m you  \033[1;31mb\033[0m 박쥐  "
+                   "\033[38;5;208mG\033[0m 좀비  \033[1;35mV\033[0m 뱀파이어  "
+                   "\033[38;5;196mo\033[0m 피의 원반  \033[1;33m^\033[0m 부패한 살점  "
+                   "\033[1;33m+\033[0m 파멸의 십자  \033[38;5;124m*\033[0m 혈사포  "
+                   "\033[1;33m$\033[0m 보물상자  "
+                   "\033[1;34m@\033[0m 방패  \033[1;32m+\033[0m XP\033[K\n\n");
+        }
     }
 
     for (int y = 0; y < game->mapHeight; y++) {
@@ -455,19 +436,20 @@ void UiDrawGame(const Game *game)
     if (game->speedWarningTimer > 0.0f && ((int)(game->speedWarningTimer / 0.7f) % 2) == 0) {
         printf("\033[1;31m  !! 몬스터가 더 강력해집니다! !!\033[0m\033[K\n");
     } else if (game->miniEventMessageTimer > 0.0f && game->activeMiniEvent == MINI_EVENT_BAT_STORM) {
-        printf("\033[1;31m  MINI EVENT: 박쥐 폭풍! 약한 적이 몰려옵니다.\033[0m\033[K\n");
+        static const char *batMessages[3] = {
+            "피 냄새를 맡았다. 박쥐 떼가 몰려온다...",
+            "하늘이 붉게 물든다. 저들은 배가 고프다.",
+            "밤의 사자들이 왔다. 비명은 아무도 듣지 못한다."
+        };
+        printf("\033[1;31m  %s\033[0m\033[K\n", batMessages[game->miniEventVariant]);
     } else {
         printf("\033[K\n");
     }
 
     /* 모드별 하단 표시 */
-    if (game->mode == GAME_MODE_LEVEL_UP || game->mode == GAME_MODE_CHEST) {
+    if (game->mode == GAME_MODE_LEVEL_UP) {
         int i;
-        if (game->mode == GAME_MODE_CHEST) {
-            printf("\033[1;33m  ======= 보물상자 발견! ========\033[0m\033[K\n");
-        } else {
-            printf("\033[1;33m  ========== LEVEL UP! ==========\033[0m\033[K\n");
-        }
+        printf("\033[1;33m  ========== LEVEL UP! ==========\033[0m\033[K\n");
         for (i = 0; i < UPGRADE_CHOICES; i++) {
             const bool sel = (game->selectedUpgrade == i);
             printf("  %s\033[1;37m[%d]\033[0m ",
@@ -484,7 +466,7 @@ void UiDrawGame(const Game *game)
     } else if (game->mode == GAME_MODE_GAME_OVER) {
         printf("\033[1;31mGAME OVER\033[0m  HP가 0이 됐습니다.  R 재시작  B/Esc 타이틀\033[K\n");
     } else if (game->mode == GAME_MODE_VICTORY) {
-        printf("\033[1;32mGAME CLEAR\033[0m  7분 생존 성공!  Enter/R 랭킹 등록  B/Esc 타이틀\033[K\n");
+        printf("\033[1;32mGAME CLEAR\033[0m  5분 생존 성공!  Enter/R 랭킹 등록  B/Esc 타이틀\033[K\n");
     } else {
         printf("이동으로 회피하세요. 공격은 자동입니다.  Esc 일시정지  Q 게임종료  M 사운드\033[K\n");
     }

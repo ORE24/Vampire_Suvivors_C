@@ -97,12 +97,11 @@ static void BuildEnemyDistanceMap(const Game *game, int distances[MAX_MAP_HEIGHT
     }
 }
 
-// [실행 시] 적의 현재 위치에서 8방향을 모두 검사한다. (BFS)
+// [실행 시] 적의 현재 위치에서 8방향을 모두 검사한다.
 // 1. 맵 경계 밖·벽·다른 적이 있는 칸·도달 불가 칸은 건너뛴다.
 // 2. 유효한 칸 중 distances 값이 가장 작은 칸(플레이어에 가장 가까운 칸)을 선택한다.
-// 3. 이동 가능한 칸이 있으면 적의 position을 해당 칸으로 갱신하고 true를 반환한다.
-// 4. 이동할 곳이 없으면 false를 반환한다.
-static bool TryMoveEnemyTowardPlayer(Game *game, Enemy *enemy, int distances[MAX_MAP_HEIGHT][MAX_MAP_WIDTH])
+// 3. 이동 가능한 칸이 있으면 적의 position을 해당 칸으로 갱신한다. 없으면 제자리.
+static void TryMoveEnemyTowardPlayer(Game *game, Enemy *enemy, int distances[MAX_MAP_HEIGHT][MAX_MAP_WIDTH])
 {
     static const int directions[8][2] = {
         {1, 0},
@@ -119,7 +118,6 @@ static bool TryMoveEnemyTowardPlayer(Game *game, Enemy *enemy, int distances[MAX
     int bestX = enemyX;
     int bestY = enemyY;
     int bestDistance = ENEMY_UNREACHABLE;
-    bool foundMove = false; //8방향 다 false면 이동할 곳 X
 
     for (int i = 0; i < 8; i++) {
         const int nextX = enemyX + directions[i][0];
@@ -139,13 +137,11 @@ static bool TryMoveEnemyTowardPlayer(Game *game, Enemy *enemy, int distances[MAX
             bestX = nextX;
             bestY = nextY;
             bestDistance = distances[nextY][nextX];
-            foundMove = true; // 더 가까운칸이며 이동가능하면 true로 설정
         }
     }
 
     enemy->position.x = (float)bestX;
     enemy->position.y = (float)bestY;
-    return true; // 최종선택 칸으로 적 이동
 }
 
 // [실행 시] (dx, dy) 방향으로 이동할 다음 칸을 계산한다.
@@ -164,17 +160,17 @@ static void TryMovePlayer(Game *game, int dx, int dy)
 }
 
 // [실행 시] elapsed를 90으로 나눈 단계 수로 속도/HP 배율을 산출한다. (1분 30초마다 단계 증가)
-// 1. 단계당 HP는 +10%, 속도는 +3% 증가(최대 200% 유지)한다.
+// 1. 단계당 HP는 +20%, 속도는 +4% 증가(최대 200% 유지)한다.
 // 2. type에 따라 박쥐(b)·좀비(G)·뱀파이어(V) 중 하나의 Enemy 구조체를 반환한다.
 // 시간 경과에 따른 체력/속도 스케일을 포함해 적 기본 스탯을 생성
 static Enemy CreateEnemy(EnemyType type, int x, int y, float elapsed)
 {
     const int steps = (int)(elapsed / 90.0f);
-    float speedScale = 1.0f + (float)steps * 0.03f;
-    const float hpMult = 1.0f + (float)steps * 0.10f;
+    float speedScale = 1.0f + (float)steps * 0.04f;
+    const float hpMult = 1.0f + (float)steps * 0.20f;
     const int hpBat = (int)(20.0f * hpMult + 0.5f);
-    const int hpZomb = (int)(50.0f * hpMult + 0.5f);
-    const int hpVamp = (int)(120.0f * hpMult + 0.5f); //반올림 하기위해 0.5씩 덧셈
+    const int hpZomb = (int)(60.0f * hpMult + 0.5f);
+    const int hpVamp = (int)(130.0f * hpMult + 0.5f); //반올림 하기위해 0.5씩 덧셈
 
     if (speedScale > 2.0f) {
         speedScale = 2.0f;
@@ -229,7 +225,7 @@ void PlayerUpdate(Game *game, const InputState *input, float dt)
         }
     }
 
-    // 회복의 붕대: 180초 활성 창, 만료 시 소멸
+    // 회복의 붕대: 60초 활성 창, 만료 시 소멸
     if (game->player.hpRecoveryLevel > 0 && game->player.hpRecoveryTimer > 0.0f) {
         game->player.hpRecoveryTimer -= dt;
         if (game->player.hpRecoveryTimer <= 0.0f) {
@@ -387,7 +383,7 @@ void EnemiesSpawnBatStorm(Game *game, int count)
 // [실행 시] BuildEnemyDistanceMap으로 플레이어 기준 거리 맵을 갱신한다.
 // 1. 모든 활성 적을 순회한다.
 // 2. 적이 플레이어와 1칸 이내이면 이동을 건너뛰고 피해를 처리한다.
-//    - 방패 활성 중이면 shieldHits를 줄이고 방패가 0이 되면 ShieldBreak를 호출한다.
+//    - 방패 활성 중이면 피해를 무효화하고 피격 무적 0.85초를 부여한다.
 //    - 방패 없이 무적이 아니면 health를 감소시키고 피격음을 재생한다.
 // 3. 그렇지 않으면 moveCooldown을 dt만큼 감소시키고, 쿨타임이 0 이하이면
 //    TryMoveEnemyTowardPlayer로 한 칸 이동 후 moveDelay를 다시 설정한다.
@@ -435,7 +431,7 @@ void EnemiesUpdate(Game *game, float dt)
             continue;
         }
 
-        (void)TryMoveEnemyTowardPlayer(game, enemy, distances);
+        TryMoveEnemyTowardPlayer(game, enemy, distances);
         enemy->moveCooldown = enemy->moveDelay;
     }
 }
@@ -504,7 +500,7 @@ void EnemiesDamageInRadius(Game *game, Vec2 center, int radius, int damage)
 }
 
 // [실행 시] MAX_PICKUPS 슬롯을 전부 순회하며 빈 슬롯을 찾는다.
-// 1. emptyTarget: 비어있는 슬롯 (최우선 사용).
+// 1. 비어있는 슬롯이 있으면 해당 포인터를 반환한다.
 // 2. 슬롯이 꽉 찼으면 NULL 반환 (생성 안 함).
 // pickup 슬롯에서 빈 자리를 찾아 반환
 static Pickup *FindReusablePickupSlot(Game *game)
@@ -520,7 +516,7 @@ static Pickup *FindReusablePickupSlot(Game *game)
 }
 
 // [실행 시] FindReusablePickupSlot으로 사용 가능한 슬롯을 얻는다.
-// 1. 슬롯이 NULL이면(병합·즉시 지급 처리됨) 반환한다.
+// 1. 슬롯이 NULL이면 (꽉 참) 반환한다.
 // 2. 슬롯이 있으면 active, type, position, value, moveCooldown을 설정한다.
 void PickupSpawnTyped(Game *game, Vec2 position, PickupType type, int value)
 {
