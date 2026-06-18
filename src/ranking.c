@@ -18,7 +18,7 @@ static const char *RankingResultLabel(RankingResult result)
     return "LOSE";
 }
 
-// scores.txt에서 현재 랭킹 표시에 필요한 최대 기록만 읽는다
+// scores.txt에서 최대 MAX_RANKINGS개의 기록을 읽는다
 void RankingLoad(RankingEntry entries[MAX_RANKINGS], int *count)
 {
     FILE *file = fopen(SCORE_FILE, "r"); // 읽기 모드로 파일 열기
@@ -59,7 +59,7 @@ void RankingAddAndSave(const Game *game, const char *name, RankingResult result)
 
     RankingLoad(entries, &count); // 기존 랭킹 불러오기
 
-    // 배열이 꽉 차지 않았으면 새 기록 추가
+    // 새 기록 추가 (RankingLoad는 MAX_RANKINGS개까지만 읽으므로 항상 공간 있음)
     if (count < MAX_RANKINGS + 1) {
         strncpy(entries[count].name, name, sizeof(entries[count].name) - 1);
         strncpy(entries[count].result, resultLabel, sizeof(entries[count].result) - 1);
@@ -81,7 +81,7 @@ void RankingAddAndSave(const Game *game, const char *name, RankingResult result)
         }
     }
 
-    // 6개면 마지막 잘라내고 5개만 유지
+    // MAX_RANKINGS 초과분 잘라내기
     if (count > MAX_RANKINGS) {
         count = MAX_RANKINGS;
     }
