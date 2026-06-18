@@ -187,21 +187,10 @@ static Enemy CreateEnemy(EnemyType type, int x, int y, float elapsed)
 
 
 
-// [실행 시] 방패 타이머와 히트 카운트를 0으로 초기화한다.
-// 1. shieldBreakTimer를 1.2초로 설정해 폭발 연출을 시작한다.
-// 2. 활성화된 모든 적을 EnemyDefeat로 제거한다.
-// 방패가 깨질 때 남은 적을 정리하고 폭발 연출 타이머를 켠다
+/* [실행 시] 방패 타이머를 0으로 초기화한다. */
 static void ShieldBreak(Game *game)
 {
     game->player.shieldTimer = 0.0f;
-    game->player.shieldHits  = 0;
-    game->shieldBreakTimer   = 1.2f;
-    for (int si = 0; si < MAX_ENEMIES; si++) {
-        Enemy *se = &game->enemies[si];
-        if (se->active) {
-            EnemyDefeat(game, se);
-        }
-    }
 }
 
 // [실행 시] dt만큼 이동 쿨타임과 무적 타이머를 감소시킨다.
@@ -235,7 +224,7 @@ void PlayerUpdate(Game *game, const InputState *input, float dt)
         }
     }
 
-    // 무적의 방패: 5번 방어 또는 20초 만료 시 화면 몬스터 전멸
+    /* 무적의 방패: 10초 만료 시 방패 소멸 */
     if (game->player.shieldTimer > 0.0f) {
         game->player.shieldTimer -= dt;
         if (game->player.shieldTimer <= 0.0f) {
@@ -412,11 +401,8 @@ void EnemiesUpdate(Game *game, float dt)
             // 방패 무적(shieldTimer) 또는 피격 무적(invulnerableTimer) 중이면 피해 없음
             if (game->player.invulnerableTimer <= 0.0f) {
                 if (game->player.shieldTimer > 0.0f) {
-                    game->player.shieldHits--;
+                    /* 방패 활성 중: 피해 무효 */
                     game->player.invulnerableTimer = 0.85f;
-                    if (game->player.shieldHits <= 0) {
-                        ShieldBreak(game);
-                    }
                 } else {
                     game->player.health -= enemy->damage;
                     game->player.invulnerableTimer = 0.85f;

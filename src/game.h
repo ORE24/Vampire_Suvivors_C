@@ -101,7 +101,6 @@ typedef struct Player {
     /* 속도 배율 */
     float attackSpeedMult;
     float moveSpeedMult;
-    int  shieldHits;  /* 남은 방어 횟수 (최대 5) */
 } Player;
 
 typedef struct Enemy {
@@ -126,10 +125,6 @@ typedef struct Projectile {
     float lifetime;
     int pierce;
     int areaHit;       /* 0=단일, 1=범위(3x3) */
-    bool orbit;        /* true = 플레이어 주변 궤도 회전 */
-    float orbitAngle;  /* 현재 각도 (radians) */
-    float orbitRadius;
-    float orbitHitCooldown; /* 궤도탄 재타격 쿨타임 */
     char glyph;
 } Projectile;
 
@@ -144,18 +139,14 @@ typedef struct Pickup {
 /* 혈사포 레이저 시각 효과 */
 typedef struct Laser {
     bool active;
-    bool horizontal;   /* 가로(행) 레이저 표시 */
-    bool vertical;     /* 세로(열) 레이저 표시 */
-    int row;           /* 가로 레이저의 y좌표 */
-    int col;           /* 세로 레이저의 x좌표 */
+    bool goLeft;
+    bool goRight;
+    bool goUp;
+    bool goDown;
+    int playerX;   /* 발사 시점 플레이어 X */
+    int playerY;   /* 발사 시점 플레이어 Y */
     float timer;
 } Laser;
-
-/* 보물상자: 40초마다 랜덤 위치 스폰, 획득 시 업그레이드 선택 */
-typedef struct TreasureChest {
-    bool active;
-    Vec2 position;
-} TreasureChest;
 
 typedef struct Weapon {
     WeaponType type;
@@ -198,8 +189,6 @@ typedef struct Game {
     float highEnemyStart;
     int midEnemyChance;
     int highEnemyChance;
-    float auraPulseTimer;
-    float shieldBreakTimer;   /* >0 이면 방패 폭발 이팩트 표시 */
     float speedWarningTimer;  /* >0 이면 "몬스터 강력" 경고 표시 */
     int   lastSpeedStep;      /* 마지막으로 감지한 속도 단계 */
     MiniEventType activeMiniEvent;
@@ -209,8 +198,6 @@ typedef struct Game {
     int miniEventVariant;
     unsigned int pendingSounds;
     Laser laser;
-    TreasureChest chest;
-    float chestTimer;   /* 다음 보물상자 스폰까지 남은 시간 */
 } Game;
 
 float GameDistanceSquared(Vec2 a, Vec2 b);
