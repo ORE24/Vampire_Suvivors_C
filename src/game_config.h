@@ -13,7 +13,7 @@
 #define MAX_RANKINGS 5
 #define MAX_NAME_LEN 15
 
-#define SURVIVAL_SECONDS 300.0f  /* 5분 */
+#define SURVIVAL_SECONDS 420.0f  /* 7분 */
 #define HP_RECOVERY_SECONDS 60.0f
 
 #endif

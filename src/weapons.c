@@ -96,7 +96,7 @@ static bool ProjectilePathHitsWall(const Game *game, Vec2 from, Vec2 to)
     return false;
 }
 
-/* ○ 원형: 가장 가까운 적 조준 1발 / Lv7 30도씩 회전 고속 발사 */
+/* 피의 원반: 가장 가까운 적 조준 1발 / Lv7 30도씩 회전 고속 발사 (쿨타임 0.2s) */
 static void FireCircle(Game *game, Weapon *weapon)
 {
     if (weapon->level >= 7) {
@@ -122,7 +122,7 @@ static void FireCircle(Game *game, Weapon *weapon)
     }
 }
 
-/* △ 삼각형: 3발 부채꼴 / Lv.7: 5발 부채꼴 */
+/* 부패한 살점: 3발 부채꼴 / Lv.7: 5발 부채꼴 */
 static void FireTriangle(Game *game, Weapon *weapon)
 {
     Vec2 targetPosition;
@@ -149,7 +149,7 @@ static void FireTriangle(Game *game, Weapon *weapon)
     GameRequestSound(game, SOUND_SHOOT);
 }
 
-/* □ 사각형: 상하좌우 4방향 / Lv.7: 8방향 전방위 */
+/* 파멸의 십자: 상하좌우 4방향 / Lv.7: 8방향 전방위 */
 static void FireSquare(Game *game, Weapon *weapon)
 {
     static const Vec2 dirs4[4] = {
@@ -186,7 +186,7 @@ static void FireSquare(Game *game, Weapon *weapon)
     GameRequestSound(game, SOUND_SHOOT);
 }
 
-/* ★ 별: 가장 가까운 적의 상하좌우 방향으로 레이저 / Lv.7: 4방향 동시 */
+/* 혈사포: 가장 가까운 적의 상하좌우 방향으로 레이저 / Lv.7: 4방향 동시 */
 static void FireStar(Game *game, Weapon *weapon)
 {
     const int playerX = GameRound(game->player.position.x);
@@ -250,37 +250,21 @@ static void FireStar(Game *game, Weapon *weapon)
     GameRequestSound(game, SOUND_SHOOT);
 }
 
-/* 현재 장착 무기 발사 + 부패한 혜성 버스트 처리 */
+/* 현재 장착 무기 발사 타이머 및 쿨타임 처리 */
 void WeaponsUpdate(Game *game, float dt)
 {
     Weapon *weapon = &game->weapons[game->activeWeapon];
     float effectiveCooldown;
 
-    /* 원형 Lv.7: 기본 쿨타임 대신 0.4s 고속 발사 */
+    /* 피의 원반 Lv.7: 기본 쿨타임 대신 0.2s 고속 발사 */
     if (game->activeWeapon == WEAPON_MAGIC_BOLT && weapon->level >= 7) {
         effectiveCooldown = (game->player.attackSpeedMult > 0.0f)
-            ? 0.4f / game->player.attackSpeedMult
-            : 0.4f;
+            ? 0.2f / game->player.attackSpeedMult
+            : 0.2f;
     } else {
         effectiveCooldown = (game->player.attackSpeedMult > 0.0f)
             ? weapon->cooldown / game->player.attackSpeedMult
             : weapon->cooldown;
-    }
-
-    /* 버스트 연사 처리 (부패한 혜성 Lv7) */
-    if (weapon->burstRemaining > 0) {
-        weapon->burstTimer -= dt;
-        if (weapon->burstTimer <= 0.0f) {
-            Vec2 dir = weapon->burstDirection;
-            float baseAngle = atan2f(dir.y, dir.x);
-            for (int s = -1; s <= 1; s++) {
-                float a = baseAngle + (float)s * 0.18f;
-                SpawnProjectile(game, weapon, (Vec2){cosf(a), sinf(a)}, 14.0f, 2.0f, 1, 0);
-            }
-            GameRequestSound(game, SOUND_SHOOT);
-            weapon->burstRemaining--;
-            weapon->burstTimer = 0.15f;
-        }
     }
 
     weapon->timer -= dt;

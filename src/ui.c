@@ -16,7 +16,8 @@ typedef enum CellColor {
     CELL_PICKUP_POWER,
     CELL_AURA,
     CELL_TEXT,
-    CELL_BLOOD
+    CELL_BLOOD,
+    CELL_BLOOD_DARK
 } CellColor;
 
 typedef struct Cell {
@@ -51,6 +52,8 @@ static const char *ColorCode(CellColor color)
             return "\033[1;37m";
         case CELL_BLOOD:
             return "\033[38;5;196m";
+        case CELL_BLOOD_DARK:
+            return "\033[0;38;5;124m";
     }
 
     return "\033[0m";
@@ -162,29 +165,29 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
         }
     }
 
-    /* 별 무기 공격 렌더링: 플레이어 기준 해당 방향만 '|'로 표시 */
+    /* 혈사포 레이저 렌더링: 플레이어 기준 해당 방향만 '*'로 표시 */
     if (game->laser.active) {
         const int px = game->laser.playerX;
         const int py = game->laser.playerY;
         if (game->laser.goLeft) {
             for (int x = 1; x < px; x++)
                 if (!GameMapIsBlocked(game, x, py))
-                    PutCell(game, grid, x, py, '*', CELL_TEXT);
+                    PutCell(game, grid, x, py, '*', CELL_BLOOD_DARK);
         }
         if (game->laser.goRight) {
             for (int x = px + 1; x < game->mapWidth - 1; x++)
                 if (!GameMapIsBlocked(game, x, py))
-                    PutCell(game, grid, x, py, '*', CELL_TEXT);
+                    PutCell(game, grid, x, py, '*', CELL_BLOOD_DARK);
         }
         if (game->laser.goUp) {
             for (int y = 1; y < py; y++)
                 if (!GameMapIsBlocked(game, px, y))
-                    PutCell(game, grid, px, y, '*', CELL_TEXT);
+                    PutCell(game, grid, px, y, '*', CELL_BLOOD_DARK);
         }
         if (game->laser.goDown) {
             for (int y = py + 1; y < game->mapHeight - 1; y++)
                 if (!GameMapIsBlocked(game, px, y))
-                    PutCell(game, grid, px, y, '*', CELL_TEXT);
+                    PutCell(game, grid, px, y, '*', CELL_BLOOD_DARK);
         }
     }
 
@@ -192,7 +195,8 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
         const Projectile *projectile = &game->projectiles[i];
         if (projectile->active) {
             PutCell(game, grid, GameRound(projectile->position.x), GameRound(projectile->position.y), projectile->glyph,
-                projectile->glyph == 'o' ? CELL_BLOOD : CELL_PROJECTILE);
+                projectile->glyph == 'o' ? CELL_BLOOD :
+                projectile->glyph == '*' ? CELL_BLOOD_DARK : CELL_PROJECTILE);
         }
     }
 
@@ -390,7 +394,7 @@ void UiDrawGame(const Game *game)
     /* 줄3: 무기 정보 */
     {
         static const char *weaponNames[WEAPON_COUNT] = {
-            "원형(○)", "삼각형(△)", "사각형(□)", "별(★)"
+            "피의 원반", "부패한 살점", "파멸의 십자", "혈사포"
         };
         const Weapon *aw = &game->weapons[game->activeWeapon];
 
@@ -413,13 +417,15 @@ void UiDrawGame(const Game *game)
         }
         printf("\033[K\n");
 
-        /* Legend */
-        printf("\033[1;36m@\033[0m you  \033[1;31mb\033[0m 박쥐  "
-               "\033[38;5;208mG\033[0m 좀비  \033[1;35mV\033[0m 뱀파이어  "
-               "\033[38;5;196mo\033[0m 원형  \033[1;33m^\033[0m 삼각형  "
-               "\033[1;33m+\033[0m 사각형  \033[1;33m*\033[0m 별  "
-               "\033[1;33m$\033[0m 보물상자  "
-               "\033[1;34m@\033[0m 방패  \033[1;32m+\033[0m XP\033[K\n\n");
+        /* Legend: 레벨업 화면은 줄 수가 많아 터미널 스크롤이 생기므로 숨김 */
+        if (game->mode != GAME_MODE_LEVEL_UP) {
+            printf("\033[1;36m@\033[0m you  \033[1;31mb\033[0m 박쥐  "
+                   "\033[38;5;208mG\033[0m 좀비  \033[1;35mV\033[0m 뱀파이어  "
+                   "\033[38;5;196mo\033[0m 피의 원반  \033[1;33m^\033[0m 부패한 살점  "
+                   "\033[1;33m+\033[0m 파멸의 십자  \033[38;5;124m*\033[0m 혈사포  "
+                   "\033[1;33m$\033[0m 보물상자  "
+                   "\033[1;34m@\033[0m 방패  \033[1;32m+\033[0m XP\033[K\n\n");
+        }
     }
 
     for (int y = 0; y < game->mapHeight; y++) {
@@ -430,7 +436,12 @@ void UiDrawGame(const Game *game)
     if (game->speedWarningTimer > 0.0f && ((int)(game->speedWarningTimer / 0.7f) % 2) == 0) {
         printf("\033[1;31m  !! 몬스터가 더 강력해집니다! !!\033[0m\033[K\n");
     } else if (game->miniEventMessageTimer > 0.0f && game->activeMiniEvent == MINI_EVENT_BAT_STORM) {
-        printf("\033[1;31m  MINI EVENT: 박쥐 폭풍! 약한 적이 몰려옵니다.\033[0m\033[K\n");
+        static const char *batMessages[3] = {
+            "피 냄새를 맡았다. 박쥐 떼가 몰려온다...",
+            "하늘이 붉게 물든다. 저들은 배가 고프다.",
+            "밤의 사자들이 왔다. 비명은 아무도 듣지 못한다."
+        };
+        printf("\033[1;31m  %s\033[0m\033[K\n", batMessages[game->miniEventVariant]);
     } else {
         printf("\033[K\n");
     }

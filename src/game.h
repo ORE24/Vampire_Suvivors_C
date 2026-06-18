@@ -9,7 +9,6 @@ typedef enum GameMode {
     GAME_MODE_PLAYING = 0,
     GAME_MODE_PAUSED,
     GAME_MODE_LEVEL_UP,
-    GAME_MODE_CHEST,       /* 보물상자 업그레이드 선택 */
     GAME_MODE_GAME_OVER,
     GAME_MODE_VICTORY
 } GameMode;
@@ -95,7 +94,7 @@ typedef struct Player {
     /* 패시브 아이템: 회복의 붕대 */
     int hpRecoveryLevel;    /* 0=없음, 1=활성 */
     int bandageKillCount;   /* 다음 회복까지 누적 킬 수 */
-    float hpRecoveryTimer;  /* 활성 남은 시간 (획득 시 180초, 0되면 소멸) */
+    float hpRecoveryTimer;  /* 활성 남은 시간 (획득 시 60초, 0되면 소멸) */
     /* 패시브 아이템: 무적의 방패 */
     int shieldLevel;        /* 0=없음, 1=보유 */
     float shieldTimer;      /* 남은 무적 시간 (>0 이면 무적) */
@@ -137,7 +136,7 @@ typedef struct Pickup {
     float moveCooldown;
 } Pickup;
 
-/* 별(★) 무기 레이저 시각 효과 */
+/* 혈사포 레이저 시각 효과 */
 typedef struct Laser {
     bool active;
     bool goLeft;
@@ -158,10 +157,6 @@ typedef struct Weapon {
     float cooldown;
     float timer;
     char glyph;
-    /* 버스트 발사용 (부패한 혜성 Lv7) */
-    int   burstRemaining;
-    float burstTimer;
-    Vec2  burstDirection;
 } Weapon;
 
 typedef struct UpgradeOption {
@@ -200,6 +195,7 @@ typedef struct Game {
     float nextMiniEventTime;
     float miniEventTimer;
     float miniEventMessageTimer;
+    int miniEventVariant;
     unsigned int pendingSounds;
     Laser laser;
 } Game;
