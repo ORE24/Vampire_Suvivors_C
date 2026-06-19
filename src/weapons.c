@@ -5,7 +5,6 @@
 
 #define PI 3.14159265358979323846f
 
-/* 사거리 내 가장 가까운 적 인덱스 반환 (-1 = 없음) */
 static int FindNearestEnemy(const Game *game, int range)
 {
     int nearest = -1;
@@ -34,7 +33,6 @@ static int FindNearestEnemy(const Game *game, int range)
     return nearest;
 }
 
-/* 무기 발사용 목표 좌표를 찾고, 없으면 발사를 생략하게 한다 */
 static bool FindNearestTargetPosition(const Game *game, int range, Vec2 *position)
 {
     const int enemyIndex = FindNearestEnemy(game, range);
@@ -47,7 +45,6 @@ static bool FindNearestTargetPosition(const Game *game, int range, Vec2 *positio
     return false;
 }
 
-/* 비궤도 투사체 슬롯을 초기화해 무기별 발사 함수가 같은 생성 규칙을 쓰게 한다 */
 static void SpawnProjectile(Game *game, const Weapon *weapon, Vec2 direction, float speed, float lifetime, int pierce, int areaHit)
 {
     for (int i = 0; i < MAX_PROJECTILES; i++) {
@@ -69,7 +66,6 @@ static void SpawnProjectile(Game *game, const Weapon *weapon, Vec2 direction, fl
     }
 }
 
-/* 빠른 투사체가 벽을 건너뛰지 않도록 이동 경로를 샘플링한다 */
 static bool ProjectilePathHitsWall(const Game *game, Vec2 from, Vec2 to)
 {
     const float dx = to.x - from.x;
@@ -96,7 +92,6 @@ static bool ProjectilePathHitsWall(const Game *game, Vec2 from, Vec2 to)
     return false;
 }
 
-/* ○ 원형: 가장 가까운 적 조준 1발 / Lv7 30도씩 회전 고속 발사 */
 static void FireCircle(Game *game, Weapon *weapon)
 {
     if (weapon->level >= 7) {
@@ -122,7 +117,6 @@ static void FireCircle(Game *game, Weapon *weapon)
     }
 }
 
-/* △ 삼각형: 3발 부채꼴 / Lv.7: 5발 부채꼴 */
 static void FireTriangle(Game *game, Weapon *weapon)
 {
     Vec2 targetPosition;
@@ -149,7 +143,6 @@ static void FireTriangle(Game *game, Weapon *weapon)
     GameRequestSound(game, SOUND_SHOOT);
 }
 
-/* □ 사각형: 상하좌우 4방향 / Lv.7: 8방향 전방위 */
 static void FireSquare(Game *game, Weapon *weapon)
 {
     static const Vec2 dirs4[4] = {
@@ -186,7 +179,6 @@ static void FireSquare(Game *game, Weapon *weapon)
     GameRequestSound(game, SOUND_SHOOT);
 }
 
-/* ★ 별: 가장 가까운 적의 상하좌우 방향으로 레이저 / Lv.7: 4방향 동시 */
 static void FireStar(Game *game, Weapon *weapon)
 {
     const int playerX = GameRound(game->player.position.x);
@@ -208,7 +200,6 @@ static void FireStar(Game *game, Weapon *weapon)
         game->laser.goUp    = true;
         game->laser.goDown  = true;
     } else {
-        /* 가장 가까운 적의 상대 위치로 방향 결정 */
         const int nearestIndex = FindNearestEnemy(game, weapon->range);
         if (nearestIndex >= 0) {
             const float dx = game->enemies[nearestIndex].position.x - game->player.position.x;
@@ -221,7 +212,7 @@ static void FireStar(Game *game, Weapon *weapon)
                 game->laser.goUp   = (dy < 0.0f);
             }
         } else {
-            return; /* 사거리 내 적 없으면 발사 안 함 */
+            return;
         }
     }
 
@@ -250,13 +241,11 @@ static void FireStar(Game *game, Weapon *weapon)
     GameRequestSound(game, SOUND_SHOOT);
 }
 
-/* 현재 장착 무기 발사 + 부패한 혜성 버스트 처리 */
 void WeaponsUpdate(Game *game, float dt)
 {
     Weapon *weapon = &game->weapons[game->activeWeapon];
     float effectiveCooldown;
 
-    /* 원형 Lv.7: 기본 쿨타임 대신 0.2s 고속 발사 */
     if (game->activeWeapon == WEAPON_MAGIC_BOLT && weapon->level >= 7) {
         effectiveCooldown = (game->player.attackSpeedMult > 0.0f)
             ? 0.2f / game->player.attackSpeedMult
@@ -289,7 +278,6 @@ void WeaponsUpdate(Game *game, float dt)
     }
 }
 
-/* 투사체 수명, 이동, 궤도 위치, 벽 충돌을 갱신 */
 void ProjectilesUpdate(Game *game, float dt)
 {
     for (int i = 0; i < MAX_PROJECTILES; i++) {
@@ -314,7 +302,6 @@ void ProjectilesUpdate(Game *game, float dt)
     }
 }
 
-/* 투사체와 적 충돌을 해결하고 처치 처리는 EnemyDefeat로 위임 */
 void CombatResolve(Game *game)
 {
     for (int projectileIndex = 0; projectileIndex < MAX_PROJECTILES; projectileIndex++) {
@@ -336,7 +323,6 @@ void CombatResolve(Game *game)
             }
 
             if (projectile->areaHit > 0) {
-                /* 3x3 범위 타격 */
                 EnemiesDamageInRadius(game, projectile->position, 1, projectile->damage);
                 projectile->active = false;
             } else {

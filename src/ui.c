@@ -16,7 +16,8 @@ typedef enum CellColor {
     CELL_PICKUP_POWER,
     CELL_AURA,
     CELL_TEXT,
-    CELL_BLOOD
+    CELL_BLOOD,
+    CELL_BLOOD_DARK
 } CellColor;
 
 typedef struct Cell {
@@ -51,6 +52,8 @@ static const char *ColorCode(CellColor color)
             return "\033[1;37m";
         case CELL_BLOOD:
             return "\033[38;5;196m";
+        case CELL_BLOOD_DARK:
+            return "\033[0;38;5;124m";
     }
 
     return "\033[0m";
@@ -62,24 +65,27 @@ void UiClearScreen(void)
     fflush(stdout);
 }
 
-/* 게임 화면용: 커서 숨기고 맨 위로 이동 (깜빡임 최소화) */
 static void BeginFrame(void)
 {
-    printf("\033[?25l");   /* 커서 숨기기 → 위아래 흔들림 방지 */
-    printf("\033[H");      /* 커서를 맨 위로 */
+    printf("\033[?25l");
+    printf("\033[H");
 }
 
-/* 메뉴/랭킹용: 전체 화면 완전히 지운 뒤 그리기 (이전 화면 잔상 제거) */
 static void BeginFrameFull(void)
 {
     printf("\033[?25l");
-    printf("\033[2J\033[H");  /* 화면 전체 지우기 + 맨 위로 */
+    printf("\033[2J\033[H");
+}
+
+static void BeginCleanFrame(void)
+{
+    printf("\033[H\033[2J");
 }
 
 static void EndFrame(void)
 {
-    printf("\033[0m\033[J");  /* 남은 내용 지우기 */
-    printf("\033[?25h");      /* 커서 다시 보이기 */
+    printf("\033[0m\033[J");
+    printf("\033[?25h");
     fflush(stdout);
 }
 
@@ -133,7 +139,6 @@ static void PickupAppearance(PickupType type, char *glyph, CellColor *color)
     }
 }
 
-/* 게임 상태를 문자/색상 그리드로 합성해 출력 순서를 한곳에서 통제 */
 static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH])
 {
     for (int y = 0; y < game->mapHeight; y++) {
@@ -157,29 +162,28 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
         }
     }
 
-    /* 별 무기 공격 렌더링: 플레이어 기준 해당 방향만 '|'로 표시 */
     if (game->laser.active) {
         const int px = game->laser.playerX;
         const int py = game->laser.playerY;
         if (game->laser.goLeft) {
             for (int x = 1; x < px; x++)
                 if (!GameMapIsBlocked(game, x, py))
-                    PutCell(game, grid, x, py, '*', CELL_TEXT);
+                    PutCell(game, grid, x, py, '*', CELL_BLOOD_DARK);
         }
         if (game->laser.goRight) {
             for (int x = px + 1; x < game->mapWidth - 1; x++)
                 if (!GameMapIsBlocked(game, x, py))
-                    PutCell(game, grid, x, py, '*', CELL_TEXT);
+                    PutCell(game, grid, x, py, '*', CELL_BLOOD_DARK);
         }
         if (game->laser.goUp) {
             for (int y = 1; y < py; y++)
                 if (!GameMapIsBlocked(game, px, y))
-                    PutCell(game, grid, px, y, '*', CELL_TEXT);
+                    PutCell(game, grid, px, y, '*', CELL_BLOOD_DARK);
         }
         if (game->laser.goDown) {
             for (int y = py + 1; y < game->mapHeight - 1; y++)
                 if (!GameMapIsBlocked(game, px, y))
-                    PutCell(game, grid, px, y, '*', CELL_TEXT);
+                    PutCell(game, grid, px, y, '*', CELL_BLOOD_DARK);
         }
     }
 
@@ -187,7 +191,8 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
         const Projectile *projectile = &game->projectiles[i];
         if (projectile->active) {
             PutCell(game, grid, GameRound(projectile->position.x), GameRound(projectile->position.y), projectile->glyph,
-                projectile->glyph == 'o' ? CELL_BLOOD : CELL_PROJECTILE);
+                projectile->glyph == 'o' ? CELL_BLOOD :
+                projectile->glyph == '*' ? CELL_BLOOD_DARK : CELL_PROJECTILE);
         }
     }
 
@@ -209,7 +214,6 @@ static void BuildGrid(const Game *game, Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH]
     }
 
     if (game->player.shieldTimer > 0.0f) {
-        /* 방패 활성 중: 파란색 고정 */
         PutCell(game, grid, GameRound(game->player.position.x), GameRound(game->player.position.y), '@', CELL_AURA);
     } else if (game->player.invulnerableTimer <= 0.0f || ((int)(game->player.invulnerableTimer * 12.0f) % 2) == 0) {
         PutCell(game, grid, GameRound(game->player.position.x), GameRound(game->player.position.y), '@', CELL_PLAYER);
@@ -233,10 +237,6 @@ static void DrawGridLine(const Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH], int y, 
     printf("\033[0m\n");
 }
 
-/* 첫 화면: 뱀파이어 서바이버즈 스타일 타이틀
- * 설계: 외부박스 = ╔+95×═+╗ = 97 visual
- *       각 줄   = ║ + [95 visual 내용] + ║ = 97 visual
- * 한글은 2칸이므로 한글 N글자 있는 줄은 공백을 N개 줄여 보정 */
 void UiDrawTitle(void)
 {
     BeginFrame();
@@ -267,7 +267,7 @@ void UiDrawTitle(void)
 
 void UiDrawControls(void)
 {
-    BeginFrameFull();
+    BeginCleanFrame();
     printf("\033[1;31m============================== 조작법 ================================\033[0m\n\n");
     printf("  이동          : WASD / 방향키\n");
     printf("  레벨업 선택   : 1, 2, 3 또는 Enter\n");
@@ -283,7 +283,7 @@ void UiDrawControls(void)
 
 void UiDrawSetup(GameDifficulty selectedDifficulty)
 {
-    BeginFrameFull();
+    BeginCleanFrame();
     printf("\033[1;31m============================== SETUP ================================\033[0m\n\n");
     printf("게임 시작 전 난이도를 선택하세요.\n\n");
     printf("%s[1] 이지\033[0m  HP 14, 느린 웨이브, 늦은 흡혈귀\n",
@@ -295,10 +295,9 @@ void UiDrawSetup(GameDifficulty selectedDifficulty)
     EndFrame();
 }
 
-/* 저장된 랭킹을 터미널 표 형태로 출력 */
 void UiDrawRanking(const RankingEntry entries[MAX_RANKINGS], int count)
 {
-    BeginFrameFull();
+    BeginCleanFrame();
     printf("\033[1;33m============================== RANKING ==============================\033[0m\n\n");
 
     if (count == 0) {
@@ -324,7 +323,6 @@ void UiDrawRanking(const RankingEntry entries[MAX_RANKINGS], int count)
     EndFrame();
 }
 
-/* 게임 종료 후 랭킹 저장 직전 이름 입력 화면 */
 void UiDrawNameInput(const Game *game, const char *name, int nameLen)
 {
     const int seconds = (int)game->elapsed;
@@ -350,7 +348,6 @@ void UiDrawNameInput(const Game *game, const char *name, int nameLen)
     EndFrame();
 }
 
-/* 실제 플레이 화면 전체를 그리는 메인 렌더 함수 */
 void UiDrawGame(const Game *game)
 {
     Cell grid[MAX_MAP_HEIGHT][MAX_MAP_WIDTH];
@@ -369,23 +366,20 @@ void UiDrawGame(const Game *game)
     }
     BeginFrame();
 
-    /* 줄1: 타이틀 + 난이도 + 경과 시간 + 남은 시간 + 킬 + 점수 */
     printf("\033[1;36mTerminal Survivors\033[0m  ");
     printf("[%s]  ", GameDifficultyName(game->difficulty));
     printf("Time %02d:%02d  ", seconds / 60, seconds % 60);
     printf("Remain %02d:%02d  ", remaining / 60, remaining % 60);
     printf("Kills %d  Score %d\033[K\n", game->player.kills, game->player.score);
 
-    /* 줄2: HP 바 + XP 바 + LV */
     DrawBar("HP", game->player.health, game->player.maxHealth, 18, "\033[1;31m");
     printf("   ");
     DrawBar("XP", game->player.xp, game->player.xpToNextLevel, 18, "\033[1;32m");
     printf("   LV %d\033[K\n", game->player.level);
 
-    /* 줄3: 무기 정보 */
     {
         static const char *weaponNames[WEAPON_COUNT] = {
-            "원형(○)", "삼각형(△)", "사각형(□)", "별(★)"
+            "피의 원반", "부패한 살점", "파멸의 십자", "혈사포"
         };
         const Weapon *aw = &game->weapons[game->activeWeapon];
 
@@ -408,29 +402,33 @@ void UiDrawGame(const Game *game)
         }
         printf("\033[K\n");
 
-        /* Legend */
-        printf("\033[1;36m@\033[0m you  \033[1;31mb\033[0m 박쥐  "
-               "\033[38;5;208mG\033[0m 좀비  \033[1;35mV\033[0m 뱀파이어  "
-               "\033[38;5;196mo\033[0m 원형  \033[1;33m^\033[0m 삼각형  "
-               "\033[1;33m+\033[0m 사각형  \033[1;33m*\033[0m 별  "
-               "\033[1;33m$\033[0m 보물상자  "
-               "\033[1;34m@\033[0m 방패  \033[1;32m+\033[0m XP\033[K\n\n");
+        if (game->mode != GAME_MODE_LEVEL_UP) {
+            printf("\033[1;36m@\033[0m you  \033[1;31mb\033[0m 박쥐  "
+                   "\033[38;5;208mG\033[0m 좀비  \033[1;35mV\033[0m 뱀파이어  "
+                   "\033[38;5;196mo\033[0m 피의 원반  \033[1;33m^\033[0m 부패한 살점  "
+                   "\033[1;33m+\033[0m 파멸의 십자  \033[38;5;124m*\033[0m 혈사포  "
+                   "\033[1;33m$\033[0m 보물상자  "
+                   "\033[1;34m@\033[0m 방패  \033[1;32m+\033[0m XP\033[K\n\n");
+        }
     }
 
     for (int y = 0; y < game->mapHeight; y++) {
         DrawGridLine(grid, y, game->mapWidth);
     }
 
-    /* 경고 문구: 항상 1줄 차지 */
     if (game->speedWarningTimer > 0.0f && ((int)(game->speedWarningTimer / 0.7f) % 2) == 0) {
         printf("\033[1;31m  !! 몬스터가 더 강력해집니다! !!\033[0m\033[K\n");
     } else if (game->miniEventMessageTimer > 0.0f && game->activeMiniEvent == MINI_EVENT_BAT_STORM) {
-        printf("\033[1;31m  MINI EVENT: 박쥐 폭풍! 약한 적이 몰려옵니다.\033[0m\033[K\n");
+        static const char *batMessages[3] = {
+            "피 냄새를 맡았다. 박쥐 떼가 몰려온다...",
+            "하늘이 붉게 물든다. 저들은 배가 고프다.",
+            "밤의 사자들이 왔다. 비명은 아무도 듣지 못한다."
+        };
+        printf("\033[1;31m  %s\033[0m\033[K\n", batMessages[game->miniEventVariant]);
     } else {
         printf("\033[K\n");
     }
 
-    /* 모드별 하단 표시 */
     if (game->mode == GAME_MODE_LEVEL_UP) {
         int i;
         printf("\033[1;33m  ========== LEVEL UP! ==========\033[0m\033[K\n");
@@ -458,7 +456,6 @@ void UiDrawGame(const Game *game)
     EndFrame();
 }
 
-/* 여러 사운드 플래그 중 이번 프레임에 재생할 대표 효과음을 고른다 */
 PlatformSound UiSoundEvent(unsigned int flags)
 {
     if ((flags & SOUND_UI_MOVE) != 0u) {
@@ -495,7 +492,6 @@ PlatformSound UiSoundEvent(unsigned int flags)
     return PLATFORM_SOUND_NONE;
 }
 
-/* UI/게임 로직에서 쌓은 사운드 요청을 플랫폼 레이어로 넘긴다 */
 void UiPlaySounds(unsigned int flags, bool enabled)
 {
     const PlatformSound sound = UiSoundEvent(flags);
